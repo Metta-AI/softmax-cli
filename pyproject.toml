@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1", "setuptools_scm==8.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "softmax-cli"
+description = "Softmax CLI — authentication and account tools"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.12"]
+dependencies = [
+  "typer>=0.19.2",
+  "rich>=13.7.0",
+  "fastapi>=0.115.0",
+  "uvicorn>=0.34.0",
+  "httpx>=0.28.1",
+  "pyyaml>=6.0.2",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+cogames = ["cogames"]
+
+[project.scripts]
+softmax = "softmax.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+tag_regex = "^softmax-v(?P<version>\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)$"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+root = "../.."
+fallback_version = "0.0.0"
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "softmax-v*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+extend = "../../.ruff.toml"
