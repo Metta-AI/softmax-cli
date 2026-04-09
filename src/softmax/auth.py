@@ -10,6 +10,7 @@ from softmax.token_storage import load_token as load_saved_token
 from softmax.token_storage import save_token as save_stored_token
 
 DEFAULT_COGAMES_SERVER = "https://softmax.com/api"
+DEFAULT_COGAMES_API_SERVER = "https://api.observatory.softmax-research.net"
 
 
 def build_browser_login_url(login_server: str, *, callback_url: str | None = None) -> str:
