@@ -20,4 +20,5 @@ def test_softmax_cogames_help_lists_local_commands() -> None:
     assert "train" in result.stdout
     assert "eval" in result.stdout
     assert "bundle" in result.stdout
+    assert "player" in result.stdout
     assert "tutorial" in result.stdout

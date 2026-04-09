@@ -4,7 +4,11 @@ import importlib
 import sys
 from pkgutil import extend_path
 
-from softmax.auth import DEFAULT_COGAMES_SERVER, load_token
+from softmax.auth import (
+    DEFAULT_COGAMES_SERVER,
+    load_cogames_user_token,
+    save_cogames_active_token,
+)
 from softmax.perform_login import do_interactive_login_for_token
 from softmax.token_storage import TokenKind
 
@@ -17,8 +21,9 @@ def login(
     force: bool = False,
     open_browser: bool = True,
 ) -> str:
-    token = load_token(token_kind=TokenKind.COGAMES, server=login_server)
-    if token is not None and not force:
+    token = None if force else load_cogames_user_token(login_server=login_server)
+    if token is not None:
+        save_cogames_active_token(login_server=login_server, token=token)
         return token
 
     if not sys.stdin.isatty():
@@ -30,7 +35,7 @@ def login(
     do_interactive_login_for_token(
         login_server=login_server,
         server_to_save_token_under=login_server,
-        token_kind=TokenKind.COGAMES,
+        token_kind=TokenKind.COGAMES_USER,
         agent_hint=(
             "If you are a coding agent, ask your human to open the URL below and give you "
             "the auth token. Then paste the token into this window or run:\n"
@@ -40,9 +45,10 @@ def login(
         open_browser=open_browser,
     )
 
-    token = load_token(token_kind=TokenKind.COGAMES, server=login_server)
+    token = load_cogames_user_token(login_server=login_server)
     if token is None:
         raise RuntimeError(f"Interactive login did not save a token for {login_server}")
+    save_cogames_active_token(login_server=login_server, token=token)
     return token
 
 

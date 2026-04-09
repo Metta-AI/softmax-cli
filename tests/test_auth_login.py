@@ -4,10 +4,11 @@ import builtins
 import sys
 
 import pytest
+from typer.testing import CliRunner
 
 import softmax.perform_login as auth_module
 from softmax.auth import build_browser_login_url, load_token
-from softmax.cli import _build_manual_set_token_command
+from softmax.cli import _build_manual_set_token_command, app
 from softmax.perform_login import do_interactive_login_for_token
 from softmax.token_storage import TokenKind, save_token
 
@@ -15,6 +16,7 @@ COGAMES_AGENT_HINT = (
     "🤖 If you are a coding agent, ask your human to open the URL above and give you the resulting auth token. "
     "You can paste the token into this window or run: softmax set-token '<TOKEN>'"
 )
+runner = CliRunner()
 
 
 def test_authenticate_accepts_pasted_token(
@@ -216,6 +218,37 @@ def test_build_browser_login_url_uses_cli_login_path() -> None:
         )
         == "https://softmax.com/cli-login?callback=http%3A%2F%2F127.0.0.1%3A5555%2Fcallback"
     )
+
+
+def test_status_prints_active_subject_details(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api", token="player-session-token")
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "regular@example.com",
+                "is_softmax_team_member": False,
+                "is_softmax_admin": False,
+                "subject_type": "player",
+                "subject_id": "ply_alpha",
+                "owner_user_id": "regular@example.com",
+                "scopes": [],
+            }
+
+    monkeypatch.setattr("softmax.auth.httpx.get", lambda *args, **kwargs: FakeResponse())
+
+    result = runner.invoke(app, ["status"])
+    assert result.exit_code == 0
+    assert "subject_type: player" in result.stdout
+    assert "subject_id: ply_alpha" in result.stdout
+    assert "owner_user_id: regular@example.com" in result.stdout
 
 
 def test_interactive_login_requires_tty(

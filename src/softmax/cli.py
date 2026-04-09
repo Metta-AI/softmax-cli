@@ -4,7 +4,6 @@ import importlib
 import importlib.util
 import sys
 
-import httpx
 import typer
 from rich.panel import Panel
 
@@ -12,10 +11,12 @@ from softmax._console import console
 from softmax.auth import (
     DEFAULT_COGAMES_SERVER,
     build_browser_login_url,
-    delete_token,
-    has_saved_token,
-    load_token,
-    save_token,
+    delete_cogames_tokens,
+    fetch_cogames_whoami,
+    load_cogames_user_token,
+    load_current_cogames_token,
+    save_cogames_active_token,
+    save_cogames_user_token,
 )
 from softmax.perform_login import do_interactive_login_for_token
 from softmax.token_storage import TokenKind
@@ -88,7 +89,9 @@ def login_cmd(
     """Sign in to Softmax."""
     from urllib.parse import urlparse  # noqa: PLC0415
 
-    if has_saved_token(token_kind=TokenKind.COGAMES, server=login_server) and not force:
+    user_token = None if force else load_cogames_user_token(login_server=login_server)
+    if user_token is not None:
+        save_cogames_active_token(login_server=login_server, token=user_token)
         console.print(f"Already authenticated with {urlparse(login_server).hostname}", style="green")
         return
 
@@ -100,7 +103,7 @@ def login_cmd(
         do_interactive_login_for_token(
             login_server=login_server,
             server_to_save_token_under=login_server,
-            token_kind=TokenKind.COGAMES,
+            token_kind=TokenKind.COGAMES_USER,
             agent_hint=(
                 "If you are a coding agent, ask your human to open the URL below and give you "
                 "the auth token. Then paste the token into this window or run:\n"
@@ -115,6 +118,9 @@ def login_cmd(
         console.print("Authentication failed.", style="red")
         raise typer.Exit(1) from e
 
+    user_token = load_cogames_user_token(login_server=login_server)
+    assert user_token is not None
+    save_cogames_active_token(login_server=login_server, token=user_token)
     console.print("Authentication successful.", style="green")
 
 
@@ -128,7 +134,7 @@ def logout_cmd(
     ),
 ) -> None:
     """Remove saved authentication token."""
-    if delete_token(token_kind=TokenKind.COGAMES, server=login_server):
+    if delete_cogames_tokens(login_server=login_server):
         console.print("Logged out.", style="green")
     else:
         console.print("No token found — already logged out.", style="yellow")
@@ -157,19 +163,17 @@ def status_cmd(
     ),
 ) -> None:
     """Check authentication status via /whoami."""
-    token = load_token(token_kind=TokenKind.COGAMES, server=login_server)
+    token = load_current_cogames_token(login_server=login_server)
     if not token:
         console.print("[red]Not authenticated.[/red] Run [cyan]softmax login[/cyan] first.")
         raise typer.Exit(1)
 
-    response = httpx.get(
-        f"{login_server.rstrip('/')}/whoami",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=10.0,
-    )
-    response.raise_for_status()
-    email = response.json().get("user_email", "unknown")
-    console.print(f"[green]Authenticated as {email}[/green]")
+    session = fetch_cogames_whoami(login_server=login_server, token=token)
+    console.print("[green]Authenticated[/green]")
+    console.print(f"user_email: {session.user_email}")
+    console.print(f"subject_type: {session.subject_type}")
+    console.print(f"subject_id: {session.subject_id or '-'}")
+    console.print(f"owner_user_id: {session.owner_user_id or '-'}")
 
 
 @app.command(name="get-token")
@@ -182,7 +186,7 @@ def get_token_cmd(
     ),
 ) -> None:
     """Print the saved token to stdout (for scripting)."""
-    token = load_token(token_kind=TokenKind.COGAMES, server=login_server)
+    token = load_current_cogames_token(login_server=login_server)
     if not token:
         console.print("[red]No token found.[/red] Run [cyan]softmax login[/cyan] first.", style="bold")
         raise typer.Exit(1)
@@ -200,7 +204,7 @@ def set_token_cmd(
     ),
 ) -> None:
     """Manually set a token (for CI or headless environments)."""
-    save_token(token_kind=TokenKind.COGAMES, token=token, server=login_server)
+    save_cogames_user_token(login_server=login_server, token=token)
     print(f"\nToken saved for {login_server}")
 
 

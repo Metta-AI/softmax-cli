@@ -7,11 +7,12 @@ import yaml
 
 class TokenKind(StrEnum):
     COGAMES = "cogames"
+    COGAMES_USER = "cogames_user"
     OBSERVATORY = "observatory"
 
 
 def _token_file_name(*, token_kind: TokenKind) -> str:
-    if token_kind == TokenKind.COGAMES:
+    if token_kind in {TokenKind.COGAMES, TokenKind.COGAMES_USER}:
         return "cogames.yaml"
     if token_kind == TokenKind.OBSERVATORY:
         return "config.yaml"
@@ -21,6 +22,8 @@ def _token_file_name(*, token_kind: TokenKind) -> str:
 def _token_storage_key(*, token_kind: TokenKind) -> str | None:
     if token_kind == TokenKind.COGAMES:
         return "login_tokens"
+    if token_kind == TokenKind.COGAMES_USER:
+        return "user_tokens"
     if token_kind == TokenKind.OBSERVATORY:
         return "observatory_tokens"
     raise AssertionError(f"Unhandled token kind: {token_kind}")
