@@ -161,6 +161,14 @@ def status_cmd(
         metavar="URL",
         help="Authentication server URL",
     ),
+    server: str | None = typer.Option(
+        None,
+        "--server",
+        "-s",
+        metavar="URL",
+        help="API server URL for /whoami verification. Defaults to --login-server when"
+        " that is overridden, otherwise the production Observatory API.",
+    ),
 ) -> None:
     """Check authentication status via /whoami."""
     token = load_current_cogames_token(login_server=login_server)
@@ -168,7 +176,8 @@ def status_cmd(
         console.print("[red]Not authenticated.[/red] Run [cyan]softmax login[/cyan] first.")
         raise typer.Exit(1)
 
-    session = fetch_cogames_whoami(login_server=login_server, token=token)
+    api_server = server or (login_server if login_server != DEFAULT_COGAMES_SERVER else None)
+    session = fetch_cogames_whoami(api_server=api_server, token=token)
     console.print("[green]Authenticated[/green]")
     console.print(f"user_email: {session.user_email}")
     console.print(f"subject_type: {session.subject_type}")

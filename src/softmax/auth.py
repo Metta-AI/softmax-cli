@@ -79,9 +79,10 @@ def delete_cogames_tokens(*, login_server: str) -> bool:
     return deleted_active or deleted_user
 
 
-def fetch_cogames_whoami(*, login_server: str, token: str) -> WhoAmIResponse:
+def fetch_cogames_whoami(*, api_server: str | None = None, token: str) -> WhoAmIResponse:
+    server = api_server or DEFAULT_COGAMES_API_SERVER
     response = httpx.get(
-        f"{login_server.rstrip('/')}/whoami",
+        f"{server.rstrip('/')}/whoami",
         headers={"Authorization": f"Bearer {token}"},
         timeout=10.0,
     )
