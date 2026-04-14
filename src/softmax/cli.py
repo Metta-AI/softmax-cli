@@ -30,6 +30,8 @@ app = typer.Typer(
 
 
 def _register_optional_apps() -> None:
+    if importlib.util.find_spec("cogames") is None:
+        return
     if importlib.util.find_spec("cogames.softmax_cli") is None:
         return
 
