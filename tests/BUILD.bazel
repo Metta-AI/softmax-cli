@@ -1,0 +1,32 @@
+load("//tools:pytest.bzl", "pytest_test")
+
+# Every test file under packages/softmax-cli/tests/ exposed as its own
+# pytest_test. softmax-cli tests use Typer's CliRunner + tmp_path tokens —
+# no network, no subprocess, hermetic.
+_TEST_FILES = glob(
+    ["test_*.py"],
+    allow_empty = False,
+)
+
+[
+    pytest_test(
+        name = test_file.removesuffix(".py"),
+        srcs = [test_file] + glob(["conftest.py", "__init__.py"], allow_empty = True),
+        args = [
+            "--rootdir=packages/softmax-cli/tests",
+            "--confcutdir=packages/softmax-cli/tests",
+            "--import-mode=importlib",
+            "-p",
+            "no:importnb",
+            "-o",
+            "addopts=",
+            "-o",
+            "pythonpath=",
+        ],
+        deps = [
+            "//packages/softmax-cli:softmax",
+            "@pyenv//:pytest",
+        ],
+    )
+    for test_file in _TEST_FILES
+]
