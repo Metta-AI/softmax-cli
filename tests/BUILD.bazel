@@ -25,6 +25,12 @@ _TEST_FILES = glob(
         ],
         deps = [
             "//packages/softmax-cli:softmax",
+            # test_cli_plugins exercises Typer entry-point discovery — it
+            # asserts `cogames` registers as a softmax subcommand. With
+            # per-package @pyenv targets only deps you name reach the
+            # runfiles tree, so the cogames dist-info has to be pulled in
+            # explicitly for the entry-point loader to find it.
+            "@pyenv//:cogames",
             "@pyenv//:pytest",
         ],
     )
