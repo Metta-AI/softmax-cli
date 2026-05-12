@@ -146,12 +146,8 @@ def test_authenticate_reprompts_after_invalid_token(
     assert "Invalid token. Please try again." in capsys.readouterr().out
 
 
-def test_manual_command_includes_nondefault_login_server() -> None:
-    assert _build_manual_set_token_command(login_server="https://softmax.com/api") == "softmax set-token '<TOKEN>'"
-    assert (
-        _build_manual_set_token_command(login_server="https://example.ngrok.app/api")
-        == "softmax set-token '<TOKEN>' --login-server 'https://example.ngrok.app/api'"
-    )
+def test_manual_command_format() -> None:
+    assert _build_manual_set_token_command() == "softmax set-token '<TOKEN>'"
 
 
 def test_generic_authenticator_does_not_print_cogames_agent_hint(

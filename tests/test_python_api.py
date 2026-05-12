@@ -74,10 +74,9 @@ def test_softmax_cogames_player_list_uses_expected_defaults(monkeypatch: pytest.
     captured: dict[str, object] = {}
 
     class FakeClient:
-        def __init__(self, *, server_url: str, token: str, login_server: str) -> None:
+        def __init__(self, *, server_url: str, token: str) -> None:
             captured["server_url"] = server_url
             captured["token"] = token
-            captured["login_server"] = login_server
 
         def __enter__(self) -> "FakeClient":
             return self
@@ -94,7 +93,6 @@ def test_softmax_cogames_player_list_uses_expected_defaults(monkeypatch: pytest.
     assert captured == {
         "server_url": "https://api.observatory.softmax-research.net",
         "token": "softmax-token",
-        "login_server": "https://softmax.com/api",
     }
 
 
@@ -103,10 +101,9 @@ def test_softmax_cogames_login_returns_player_token(monkeypatch: pytest.MonkeyPa
         token = "player-token"
 
     class FakeClient:
-        def __init__(self, *, server_url: str, token: str, login_server: str) -> None:
+        def __init__(self, *, server_url: str, token: str) -> None:
             self.server_url = server_url
             self.token = token
-            self.login_server = login_server
 
         def __enter__(self) -> "FakeClient":
             return self
@@ -117,7 +114,6 @@ def test_softmax_cogames_login_returns_player_token(monkeypatch: pytest.MonkeyPa
         def login_player(self, player_id: str) -> FakeLoginResponse:
             assert self.server_url == "https://api.observatory.softmax-research.net"
             assert self.token == "softmax-token"
-            assert self.login_server == "https://softmax.com/api"
             assert player_id == "ply_alpha"
             return FakeLoginResponse()
 
@@ -132,7 +128,7 @@ def test_softmax_cogames_login_response_returns_full_response(monkeypatch: pytes
         expires_at = "2026-02-21T12:00:00Z"
 
     class FakeClient:
-        def __init__(self, *, server_url: str, token: str, login_server: str) -> None:
+        def __init__(self, *, server_url: str, token: str) -> None:
             pass
 
         def __enter__(self) -> "FakeClient":

@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from softmax.auth import DEFAULT_COGAMES_API_SERVER, DEFAULT_COGAMES_SERVER
+from softmax.auth import DEFAULT_COGAMES_API_SERVER
 
 
 def _get_tournament_client_class() -> type[Any]:
@@ -16,9 +16,9 @@ def _get_tournament_client_class() -> type[Any]:
     return tournament_client_module.TournamentServerClient
 
 
-def _create_client(*, token: str, server: str, login_server: str) -> Any:
+def _create_client(*, token: str, server: str) -> Any:
     client_class = _get_tournament_client_class()
-    return client_class(server_url=server, token=token, login_server=login_server)
+    return client_class(server_url=server, token=token)
 
 
 class _PlayerAPI:
@@ -27,9 +27,8 @@ class _PlayerAPI:
         token: str,
         *,
         server: str = DEFAULT_COGAMES_API_SERVER,
-        login_server: str = DEFAULT_COGAMES_SERVER,
     ) -> list[Any]:
-        with _create_client(token=token, server=server, login_server=login_server) as client:
+        with _create_client(token=token, server=server) as client:
             return client.list_players()
 
 
@@ -41,9 +40,8 @@ def login(
     player_id: str,
     *,
     server: str = DEFAULT_COGAMES_API_SERVER,
-    login_server: str = DEFAULT_COGAMES_SERVER,
 ) -> str:
-    with _create_client(token=token, server=server, login_server=login_server) as client:
+    with _create_client(token=token, server=server) as client:
         return client.login_player(player_id).token
 
 
@@ -52,9 +50,8 @@ def login_response(
     player_id: str,
     *,
     server: str = DEFAULT_COGAMES_API_SERVER,
-    login_server: str = DEFAULT_COGAMES_SERVER,
 ) -> Any:
-    with _create_client(token=token, server=server, login_server=login_server) as client:
+    with _create_client(token=token, server=server) as client:
         return client.login_player(player_id)
 
 

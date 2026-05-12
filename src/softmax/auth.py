@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import httpx
@@ -14,6 +15,10 @@ from softmax.token_storage import save_token as save_stored_token
 
 DEFAULT_COGAMES_SERVER = "https://softmax.com/api"
 DEFAULT_COGAMES_API_SERVER = "https://api.observatory.softmax-research.net"
+
+
+def get_login_server() -> str:
+    return os.environ.get("COGAMES_LOGIN_URL", DEFAULT_COGAMES_SERVER)
 
 
 class WhoAmIResponse(BaseModel):
