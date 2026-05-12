@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import sys
 
+import httpx
 import typer
 from rich.panel import Panel
 
@@ -92,6 +93,19 @@ def login_cmd(
     from urllib.parse import urlparse  # noqa: PLC0415
 
     user_token = None if force else load_cogames_user_token(login_server=login_server)
+    if user_token is not None:
+        api_server = login_server if login_server != DEFAULT_COGAMES_SERVER else None
+        try:
+            fetch_cogames_whoami(api_server=api_server, token=user_token)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401:
+                console.print("Saved token is no longer valid. Re-authenticating...", style="yellow")
+                user_token = None
+            else:
+                console.print(f"Could not verify token (HTTP {exc.response.status_code}), proceeding.", style="yellow")
+        except httpx.HTTPError:
+            console.print("Could not reach server to verify token. Proceeding with saved token.", style="yellow")
+
     if user_token is not None:
         save_cogames_active_token(login_server=login_server, token=user_token)
         console.print(f"Already authenticated with {urlparse(login_server).hostname}", style="green")
