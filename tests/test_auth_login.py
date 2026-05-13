@@ -290,3 +290,60 @@ def test_save_token_raises_for_malformed_storage_section(
             server="https://softmax.com/api",
             token="abc",
         )
+
+
+def test_status_fails_for_anonymous_session(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api", token="bad-token")
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "unknown",
+                "is_softmax_team_member": False,
+                "is_softmax_admin": False,
+                "subject_type": "anonymous",
+                "subject_id": None,
+                "owner_user_id": None,
+                "scopes": [],
+            }
+
+    monkeypatch.setattr("softmax.auth.httpx.get", lambda *args, **kwargs: FakeResponse())
+
+    result = runner.invoke(app, ["status"])
+    assert result.exit_code == 1
+    assert "invalid or expired" in result.stdout
+
+
+def test_login_detects_anonymous_whoami_as_invalid_token(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="stale-token")
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "unknown",
+                "is_softmax_team_member": False,
+                "is_softmax_admin": False,
+                "subject_type": "anonymous",
+                "subject_id": None,
+                "owner_user_id": None,
+                "scopes": [],
+            }
+
+    monkeypatch.setattr("softmax.auth.httpx.get", lambda *args, **kwargs: FakeResponse())
+
+    result = runner.invoke(app, ["login", "--no-browser"])
+    assert "no longer valid" in result.stdout

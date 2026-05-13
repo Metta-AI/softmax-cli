@@ -101,7 +101,10 @@ def login_cmd(
     if user_token is not None:
         api_server = None if is_default_server else login_server
         try:
-            fetch_cogames_whoami(api_server=api_server, token=user_token)
+            whoami = fetch_cogames_whoami(api_server=api_server, token=user_token)
+            if whoami.subject_type == "anonymous":
+                console.print("Saved token is no longer valid. Re-authenticating...", style="yellow")
+                user_token = None
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 401:
                 console.print("Saved token is no longer valid. Re-authenticating...", style="yellow")
@@ -195,6 +198,9 @@ def status_cmd(
         raise typer.Exit(1)
 
     session = fetch_cogames_whoami(api_server=server, token=token)
+    if session.subject_type == "anonymous":
+        console.print("[red]Token is invalid or expired.[/red] Run [cyan]softmax login[/cyan] to re-authenticate.")
+        raise typer.Exit(1)
     console.print("[green]Authenticated[/green]")
     console.print(f"user_email: {session.user_email}")
     console.print(f"subject_type: {session.subject_type}")
