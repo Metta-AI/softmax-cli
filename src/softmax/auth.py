@@ -16,9 +16,17 @@ from softmax.token_storage import save_token as save_stored_token
 DEFAULT_COGAMES_SERVER = "https://softmax.com/api"
 DEFAULT_COGAMES_API_SERVER = "https://api.observatory.softmax-research.net"
 
+DEV_API_SERVER_URL = os.environ.get("DEV_API_SERVER_URL", "http://localhost:8000")
+DEV_AUTH_SERVER_URL = os.environ.get("DEV_AUTH_SERVER_URL", "http://localhost:3002/api")
 
-def get_login_server() -> str:
-    return os.environ.get("COGAMES_LOGIN_URL", DEFAULT_COGAMES_SERVER)
+
+def get_login_server(api_server: str | None = None) -> str:
+    explicit = os.environ.get("COGAMES_LOGIN_URL")
+    if explicit:
+        return explicit
+    if api_server is not None and api_server.rstrip("/") == DEV_API_SERVER_URL.rstrip("/"):
+        return DEV_AUTH_SERVER_URL
+    return DEFAULT_COGAMES_SERVER
 
 
 class WhoAmIResponse(BaseModel):
