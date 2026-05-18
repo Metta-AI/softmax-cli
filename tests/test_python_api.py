@@ -91,7 +91,7 @@ def test_softmax_cogames_player_list_uses_expected_defaults(monkeypatch: pytest.
 
     assert cast(Any, softmax).cogames.player.list("softmax-token") == ["alpha", "beta"]
     assert captured == {
-        "server_url": "https://api.observatory.softmax-research.net",
+        "server_url": "https://softmax.com/api",
         "token": "softmax-token",
     }
 
@@ -112,7 +112,7 @@ def test_softmax_cogames_login_returns_player_token(monkeypatch: pytest.MonkeyPa
             return None
 
         def login_player(self, player_id: str) -> FakeLoginResponse:
-            assert self.server_url == "https://api.observatory.softmax-research.net"
+            assert self.server_url == "https://softmax.com/api"
             assert self.token == "softmax-token"
             assert player_id == "ply_alpha"
             return FakeLoginResponse()

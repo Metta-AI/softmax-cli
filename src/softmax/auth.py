@@ -13,20 +13,11 @@ from softmax.token_storage import delete_token as delete_stored_token
 from softmax.token_storage import load_token as load_saved_token
 from softmax.token_storage import save_token as save_stored_token
 
-DEFAULT_COGAMES_SERVER = "https://softmax.com/api"
-DEFAULT_COGAMES_API_SERVER = "https://api.observatory.softmax-research.net"
-
-DEV_API_SERVER_URL = os.environ.get("DEV_API_SERVER_URL", "http://localhost:8000")
-DEV_AUTH_SERVER_URL = os.environ.get("DEV_AUTH_SERVER_URL", "http://localhost:3002/api")
+DEFAULT_API_SERVER = "https://softmax.com/api"
 
 
-def get_login_server(api_server: str | None = None) -> str:
-    explicit = os.environ.get("COGAMES_LOGIN_URL")
-    if explicit:
-        return explicit
-    if api_server is not None and api_server.rstrip("/") == DEV_API_SERVER_URL.rstrip("/"):
-        return DEV_AUTH_SERVER_URL
-    return DEFAULT_COGAMES_SERVER
+def get_api_server() -> str:
+    return os.environ.get("COGAMES_API_URL", DEFAULT_API_SERVER)
 
 
 class WhoAmIResponse(BaseModel):
@@ -39,14 +30,14 @@ class WhoAmIResponse(BaseModel):
     scopes: list[str] = Field(default_factory=list)
 
 
-def build_browser_login_url(login_server: str, *, callback_url: str | None = None) -> str:
+def build_browser_login_url(api_server: str, *, callback_url: str | None = None) -> str:
     """Build the hosted browser sign-in URL for CLI login."""
     params: dict[str, str] = {}
     if callback_url:
         params["callback"] = callback_url
 
     query = urlencode(params)
-    parsed = urlsplit(login_server)
+    parsed = urlsplit(api_server)
     browser_path = parsed.path.rstrip("/").removesuffix("/api") + "/cli-login"
     return urlunsplit((parsed.scheme, parsed.netloc, browser_path, query, ""))
 
@@ -67,35 +58,33 @@ def delete_token(*, token_kind: TokenKind, server: str) -> bool:
     return delete_stored_token(token_kind=token_kind, server=server)
 
 
-def load_cogames_user_token(*, login_server: str) -> str | None:
-    return load_token(token_kind=TokenKind.COGAMES_USER, server=login_server)
+def load_cogames_user_token(*, api_server: str) -> str | None:
+    return load_token(token_kind=TokenKind.COGAMES_USER, server=api_server)
 
 
-def load_current_cogames_token(*, login_server: str) -> str | None:
-    return load_token(token_kind=TokenKind.COGAMES, server=login_server) or load_cogames_user_token(
-        login_server=login_server
-    )
+def load_current_cogames_token(*, api_server: str) -> str | None:
+    return load_token(token_kind=TokenKind.COGAMES, server=api_server) or load_cogames_user_token(api_server=api_server)
 
 
-def save_cogames_active_token(*, login_server: str, token: str) -> None:
-    save_token(token_kind=TokenKind.COGAMES, server=login_server, token=token)
+def save_cogames_active_token(*, api_server: str, token: str) -> None:
+    save_token(token_kind=TokenKind.COGAMES, server=api_server, token=token)
 
 
-def save_cogames_user_token(*, login_server: str, token: str) -> None:
-    save_token(token_kind=TokenKind.COGAMES_USER, server=login_server, token=token)
-    save_cogames_active_token(login_server=login_server, token=token)
+def save_cogames_user_token(*, api_server: str, token: str) -> None:
+    save_token(token_kind=TokenKind.COGAMES_USER, server=api_server, token=token)
+    save_cogames_active_token(api_server=api_server, token=token)
 
 
-def delete_cogames_tokens(*, login_server: str) -> bool:
-    deleted_active = delete_token(token_kind=TokenKind.COGAMES, server=login_server)
-    deleted_user = delete_token(token_kind=TokenKind.COGAMES_USER, server=login_server)
+def delete_cogames_tokens(*, api_server: str) -> bool:
+    deleted_active = delete_token(token_kind=TokenKind.COGAMES, server=api_server)
+    deleted_user = delete_token(token_kind=TokenKind.COGAMES_USER, server=api_server)
     return deleted_active or deleted_user
 
 
 def fetch_cogames_whoami(*, api_server: str | None = None, token: str) -> WhoAmIResponse:
-    server = api_server or DEFAULT_COGAMES_API_SERVER
+    server = api_server or DEFAULT_API_SERVER
     response = httpx.get(
-        f"{server.rstrip('/')}/whoami",
+        f"{server.rstrip('/')}/observatory/whoami",
         headers={"Authorization": f"Bearer {token}"},
         timeout=10.0,
     )
@@ -103,9 +92,9 @@ def fetch_cogames_whoami(*, api_server: str | None = None, token: str) -> WhoAmI
     return WhoAmIResponse.model_validate(response.json())
 
 
-def restore_cogames_user_session(*, login_server: str) -> str | None:
-    user_token = load_cogames_user_token(login_server=login_server)
+def restore_cogames_user_session(*, api_server: str) -> str | None:
+    user_token = load_cogames_user_token(api_server=api_server)
     if user_token is None:
         return None
-    save_cogames_active_token(login_server=login_server, token=user_token)
+    save_cogames_active_token(api_server=api_server, token=user_token)
     return user_token

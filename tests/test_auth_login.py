@@ -28,13 +28,12 @@ def test_authenticate_accepts_pasted_token(
     monkeypatch.setattr("softmax.perform_login._find_free_port", lambda: 43123)
     monkeypatch.setattr("softmax.perform_login._run_server", lambda *, session, port: None)
     monkeypatch.setattr("softmax.perform_login._wait_for_callback_server_to_start", lambda *, session, port: False)
-    monkeypatch.setattr("softmax.perform_login._validate_token", lambda *, login_server, token: True)
+    monkeypatch.setattr("softmax.perform_login._validate_token", lambda *, api_server, token: True)
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", lambda _prompt="": "manual-token-123")
 
     do_interactive_login_for_token(
-        login_server="https://softmax.com/api",
-        server_to_save_token_under="https://softmax.com/api",
+        api_server="https://softmax.com/api",
         token_kind=TokenKind.COGAMES,
         agent_hint=COGAMES_AGENT_HINT,
         open_browser=False,
@@ -63,12 +62,11 @@ def test_authenticate_skips_browser_when_requested(
     )
     monkeypatch.setattr(
         "softmax.perform_login._start_manual_token_prompt",
-        lambda *, session, login_server: auth_module._finish_authentication(session, token="manual-token-456"),
+        lambda *, session, api_server: auth_module._finish_authentication(session, token="manual-token-456"),
     )
 
     do_interactive_login_for_token(
-        login_server="https://softmax.com/api",
-        server_to_save_token_under="https://softmax.com/api",
+        api_server="https://softmax.com/api",
         token_kind=TokenKind.COGAMES,
         agent_hint=COGAMES_AGENT_HINT,
         open_browser=False,
@@ -100,12 +98,11 @@ def test_authenticate_falls_back_to_manual_when_callback_server_fails(
     )
     monkeypatch.setattr(
         "softmax.perform_login._start_manual_token_prompt",
-        lambda *, session, login_server: auth_module._finish_authentication(session, token="manual-token-789"),
+        lambda *, session, api_server: auth_module._finish_authentication(session, token="manual-token-789"),
     )
 
     do_interactive_login_for_token(
-        login_server="https://softmax.com/api",
-        server_to_save_token_under="https://softmax.com/api",
+        api_server="https://softmax.com/api",
         token_kind=TokenKind.COGAMES,
         agent_hint=COGAMES_AGENT_HINT,
         open_browser=True,
@@ -132,12 +129,11 @@ def test_authenticate_reprompts_after_invalid_token(
     validation_results = iter([False, True])
     monkeypatch.setattr(
         "softmax.perform_login._validate_token",
-        lambda *, login_server, token: next(validation_results),
+        lambda *, api_server, token: next(validation_results),
     )
 
     do_interactive_login_for_token(
-        login_server="https://softmax.com/api",
-        server_to_save_token_under="https://softmax.com/api",
+        api_server="https://softmax.com/api",
         token_kind=TokenKind.COGAMES,
         agent_hint=COGAMES_AGENT_HINT,
         open_browser=False,
@@ -166,15 +162,15 @@ def test_generic_authenticator_does_not_print_cogames_agent_hint(
     monkeypatch.setattr("softmax.perform_login._run_server", lambda *, session, port: None)
     monkeypatch.setattr(
         "softmax.perform_login._start_manual_token_prompt",
-        lambda *, session, login_server: auth_module._finish_authentication(session, token="manual-token-000"),
+        lambda *, session, api_server: auth_module._finish_authentication(session, token="manual-token-000"),
     )
 
     do_interactive_login_for_token(
-        login_server="https://softmax.com/api",
-        server_to_save_token_under="token-key",
+        api_server="https://softmax.com/api",
         token_kind=TokenKind.OBSERVATORY,
         agent_hint=None,
         open_browser=False,
+        save_token_under="token-key",
     )
     output = capsys.readouterr().out
     assert "Open this URL in any browser to sign in:" in output
@@ -193,15 +189,15 @@ def test_generic_authenticator_works_without_agent_hint(
     monkeypatch.setattr("softmax.perform_login._run_server", lambda *, session, port: None)
     monkeypatch.setattr(
         "softmax.perform_login._start_manual_token_prompt",
-        lambda *, session, login_server: auth_module._finish_authentication(session, token="manual-token-001"),
+        lambda *, session, api_server: auth_module._finish_authentication(session, token="manual-token-001"),
     )
 
     do_interactive_login_for_token(
-        login_server="https://softmax.com/api",
-        server_to_save_token_under="token-key",
+        api_server="https://softmax.com/api",
         token_kind=TokenKind.OBSERVATORY,
         agent_hint=None,
         open_browser=False,
+        save_token_under="token-key",
     )
 
 
@@ -254,8 +250,7 @@ def test_interactive_login_requires_tty(
 
     with pytest.raises(AssertionError, match="only be called when stdin is a TTY"):
         do_interactive_login_for_token(
-            login_server="https://softmax.com/api",
-            server_to_save_token_under="https://softmax.com/api",
+            api_server="https://softmax.com/api",
             token_kind=TokenKind.COGAMES,
             agent_hint=COGAMES_AGENT_HINT,
             open_browser=False,

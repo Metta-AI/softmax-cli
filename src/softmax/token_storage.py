@@ -45,6 +45,7 @@ def _load_token_data(*, token_file_name: str) -> dict:
 
 
 def load_token(*, token_kind: TokenKind, server: str) -> str | None:
+    server = server.rstrip("/")
     data = _load_token_data(token_file_name=_token_file_name(token_kind=token_kind))
     assert isinstance(data, dict), "Token storage file must contain a mapping at the top level"
 
@@ -57,6 +58,7 @@ def load_token(*, token_kind: TokenKind, server: str) -> str | None:
 
 
 def save_token(*, token_kind: TokenKind, server: str, token: str) -> None:
+    server = server.rstrip("/")
     token_file_name = _token_file_name(token_kind=token_kind)
     token_storage_key = _token_storage_key(token_kind=token_kind)
     data = _load_token_data(token_file_name=token_file_name)
@@ -76,6 +78,7 @@ def save_token(*, token_kind: TokenKind, server: str, token: str) -> None:
 
 
 def delete_token(*, token_kind: TokenKind, server: str) -> bool:
+    server = server.rstrip("/")
     token_file_name = _token_file_name(token_kind=token_kind)
     token_storage_key = _token_storage_key(token_kind=token_kind)
     data = _load_token_data(token_file_name=token_file_name)

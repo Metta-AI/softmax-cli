@@ -10,11 +10,11 @@ from rich.panel import Panel
 
 from softmax._console import console
 from softmax.auth import (
-    DEFAULT_COGAMES_SERVER,
+    DEFAULT_API_SERVER,
     build_browser_login_url,
     delete_cogames_tokens,
     fetch_cogames_whoami,
-    get_login_server,
+    get_api_server,
     load_cogames_user_token,
     load_current_cogames_token,
     save_cogames_active_token,
@@ -47,9 +47,9 @@ def _build_manual_set_token_command(server: str | None = None) -> str:
     return "softmax set-token '<TOKEN>'"
 
 
-def _print_non_tty_login_instructions(login_server: str | None = None) -> None:
-    resolved = login_server or get_login_server()
-    is_custom = resolved != DEFAULT_COGAMES_SERVER
+def _print_non_tty_login_instructions(api_server: str | None = None) -> None:
+    resolved = api_server or get_api_server()
+    is_custom = resolved != DEFAULT_API_SERVER
     auth_url = build_browser_login_url(resolved)
     console.print("Interactive login requires a TTY.", style="red")
     console.print()
@@ -95,11 +95,9 @@ def login_cmd(
     """Sign in to Softmax."""
     from urllib.parse import urlparse  # noqa: PLC0415
 
-    login_server = server or get_login_server()
-    is_default_server = login_server == DEFAULT_COGAMES_SERVER
-    user_token = None if force else load_cogames_user_token(login_server=login_server)
+    api_server = server or get_api_server()
+    user_token = None if force else load_cogames_user_token(api_server=api_server)
     if user_token is not None:
-        api_server = None if is_default_server else login_server
         try:
             whoami = fetch_cogames_whoami(api_server=api_server, token=user_token)
             if whoami.subject_type == "anonymous":
@@ -115,18 +113,17 @@ def login_cmd(
             console.print("Could not reach server to verify token. Proceeding with saved token.", style="yellow")
 
     if user_token is not None:
-        save_cogames_active_token(login_server=login_server, token=user_token)
-        console.print(f"Already authenticated with {urlparse(login_server).hostname}", style="green")
+        save_cogames_active_token(api_server=api_server, token=user_token)
+        console.print(f"Already authenticated with {urlparse(api_server).hostname}", style="green")
         return
 
     if not sys.stdin.isatty():
-        _print_non_tty_login_instructions(login_server)
+        _print_non_tty_login_instructions(api_server)
         raise typer.Exit(1)
 
     try:
         do_interactive_login_for_token(
-            login_server=login_server,
-            server_to_save_token_under=login_server,
+            api_server=api_server,
             token_kind=TokenKind.COGAMES_USER,
             agent_hint=(
                 "If you are a coding agent, ask your human to open the URL below and give you "
@@ -142,9 +139,9 @@ def login_cmd(
         console.print("Authentication failed.", style="red")
         raise typer.Exit(1) from e
 
-    user_token = load_cogames_user_token(login_server=login_server)
+    user_token = load_cogames_user_token(api_server=api_server)
     assert user_token is not None
-    save_cogames_active_token(login_server=login_server, token=user_token)
+    save_cogames_active_token(api_server=api_server, token=user_token)
     console.print("Authentication successful.", style="green")
 
 
@@ -159,8 +156,8 @@ def logout_cmd(
     ),
 ) -> None:
     """Remove saved authentication token."""
-    login_server = server or get_login_server()
-    if delete_cogames_tokens(login_server=login_server):
+    api_server = server or get_api_server()
+    if delete_cogames_tokens(api_server=api_server):
         console.print("Logged out.", style="green")
     else:
         console.print("No token found — already logged out.", style="yellow")
@@ -177,7 +174,7 @@ def get_login_url_cmd(
     ),
 ) -> None:
     """Print a browser sign-in URL for manual login."""
-    print(build_browser_login_url(server or get_login_server()))
+    print(build_browser_login_url(server or get_api_server()))
 
 
 @app.command(name="status")
@@ -191,13 +188,13 @@ def status_cmd(
     ),
 ) -> None:
     """Check authentication status via /whoami."""
-    login_server = server or get_login_server()
-    token = load_current_cogames_token(login_server=login_server)
+    api_server = server or get_api_server()
+    token = load_current_cogames_token(api_server=api_server)
     if not token:
         console.print("[red]Not authenticated.[/red] Run [cyan]softmax login[/cyan] first.")
         raise typer.Exit(1)
 
-    session = fetch_cogames_whoami(api_server=server, token=token)
+    session = fetch_cogames_whoami(api_server=api_server, token=token)
     if session.subject_type == "anonymous":
         console.print("[red]Token is invalid or expired.[/red] Run [cyan]softmax login[/cyan] to re-authenticate.")
         raise typer.Exit(1)
@@ -219,8 +216,8 @@ def get_token_cmd(
     ),
 ) -> None:
     """Print the saved token to stdout (for scripting)."""
-    login_server = server or get_login_server()
-    token = load_current_cogames_token(login_server=login_server)
+    api_server = server or get_api_server()
+    token = load_current_cogames_token(api_server=api_server)
     if not token:
         console.print("[red]No token found.[/red] Run [cyan]softmax login[/cyan] first.", style="bold")
         raise typer.Exit(1)
@@ -239,9 +236,9 @@ def set_token_cmd(
     ),
 ) -> None:
     """Manually set a token (for CI or headless environments)."""
-    login_server = server or get_login_server()
-    save_cogames_user_token(login_server=login_server, token=token)
-    print(f"\nToken saved for {login_server}")
+    api_server = server or get_api_server()
+    save_cogames_user_token(api_server=api_server, token=token)
+    print(f"\nToken saved for {api_server}")
 
 
 _register_optional_apps()

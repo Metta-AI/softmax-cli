@@ -269,11 +269,11 @@ def _create_app(session: _CLIAuthSession) -> FastAPI:
     return app
 
 
-def _validate_token(*, login_server: str, token: str) -> bool | None:
-    validate_url = f"{login_server.rstrip('/')}/validate"
+def _validate_token(*, api_server: str, token: str) -> bool | None:
+    whoami_url = f"{api_server.rstrip('/')}/observatory/whoami"
     try:
         response = httpx.get(
-            validate_url,
+            whoami_url,
             headers={"Authorization": f"Bearer {token}"},
             timeout=5.0,
         )
@@ -282,8 +282,8 @@ def _validate_token(*, login_server: str, token: str) -> bool | None:
 
     if response.status_code == 200:
         data = response.json()
-        return bool(data.get("valid"))
-    if response.status_code in {400, 401, 403, 404}:
+        return data.get("subject_type") != "anonymous"
+    if response.status_code in {400, 401, 403}:
         return False
     return None
 
@@ -304,7 +304,7 @@ def _print_login_instructions(*, auth_url: str, agent_hint: str | None) -> None:
     console.print()
 
 
-def _start_manual_token_prompt(*, session: _CLIAuthSession, login_server: str) -> None:
+def _start_manual_token_prompt(*, session: _CLIAuthSession, api_server: str) -> None:
     def prompt_loop() -> None:
         while not session.auth_completed.is_set():
             try:
@@ -317,7 +317,7 @@ def _start_manual_token_prompt(*, session: _CLIAuthSession, login_server: str) -
             if not token:
                 continue
 
-            validation_result = _validate_token(login_server=login_server, token=token)
+            validation_result = _validate_token(api_server=api_server, token=token)
             if validation_result is False:
                 console.print("Invalid token. Please try again.", style="red")
                 continue
@@ -360,11 +360,11 @@ def _wait_for_callback_server_to_start(*, session: _CLIAuthSession, port: int, t
 
 def do_interactive_login_for_token(
     *,
-    login_server: str,
-    server_to_save_token_under: str,
+    api_server: str,
     token_kind: TokenKind,
     agent_hint: str | None,
     open_browser: bool,
+    save_token_under: str | None = None,
 ) -> None:
     """Run the CLI browser login flow and save the resulting token."""
     assert sys.stdin.isatty(), "This function should only be called when stdin is a TTY"
@@ -378,18 +378,19 @@ def do_interactive_login_for_token(
         callback_url = f"http://127.0.0.1:{port}/callback"
     session.error = None
 
-    auth_url = build_browser_login_url(login_server, callback_url=callback_url)
+    auth_url = build_browser_login_url(api_server, callback_url=callback_url)
     _print_login_instructions(auth_url=auth_url, agent_hint=agent_hint)
     if open_browser:
         _open_browser(url=auth_url)
 
-    _start_manual_token_prompt(session=session, login_server=login_server)
+    _start_manual_token_prompt(session=session, api_server=api_server)
     session.auth_completed.wait()
     if session.error:
         raise RuntimeError(session.error)
     if not session.token:
         raise RuntimeError("No token received")
 
-    save_token(token_kind=token_kind, server=server_to_save_token_under, token=session.token)
-    print(f"\nToken saved for {server_to_save_token_under}")
+    token_server = save_token_under or api_server
+    save_token(token_kind=token_kind, server=token_server, token=session.token)
+    print(f"\nToken saved for {token_server}")
     print()
