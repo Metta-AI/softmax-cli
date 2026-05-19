@@ -89,7 +89,7 @@ def login_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Authentication server URL.",
+        help="API server URL.",
     ),
 ) -> None:
     """Sign in to Softmax."""
@@ -152,7 +152,7 @@ def logout_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Authentication server URL.",
+        help="API server URL.",
     ),
 ) -> None:
     """Remove saved authentication token."""
@@ -170,7 +170,7 @@ def get_login_url_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Authentication server URL.",
+        help="API server URL.",
     ),
 ) -> None:
     """Print a browser sign-in URL for manual login."""
@@ -184,7 +184,7 @@ def status_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Authentication server URL.",
+        help="API server URL.",
     ),
 ) -> None:
     """Check authentication status via /whoami."""
@@ -212,7 +212,7 @@ def get_token_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Authentication server URL.",
+        help="API server URL.",
     ),
 ) -> None:
     """Print the saved token to stdout (for scripting)."""
@@ -232,7 +232,7 @@ def set_token_cmd(
         "--server",
         "-s",
         metavar="URL",
-        help="Authentication server URL.",
+        help="API server URL.",
     ),
 ) -> None:
     """Manually set a token (for CI or headless environments)."""
