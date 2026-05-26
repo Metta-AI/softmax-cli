@@ -31,7 +31,7 @@ _TEST_FILES = glob(
             # runfiles tree, so the cogames dist-info has to be pulled in
             # explicitly for the entry-point loader to find it.
             "@pyenv//:cogames",
-            "@pyenv//:pytest",
+            "@pypi//pytest",
         ],
     )
     for test_file in _TEST_FILES

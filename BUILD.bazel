@@ -9,11 +9,11 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         # Mirrors packages/softmax-cli/pyproject.toml [project.dependencies].
-        "@pyenv//:typer",
-        "@pyenv//:rich",
-        "@pyenv//:fastapi",
-        "@pyenv//:uvicorn",
-        "@pyenv//:httpx",
-        "@pyenv//:pyyaml",
+        "@pypi//typer",
+        "@pypi//rich",
+        "@pypi//fastapi",
+        "@pypi//uvicorn",
+        "@pypi//httpx",
+        "@pypi//pyyaml",
     ],
 )
