@@ -1,7 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 # Local source for softmax-cli. BUILD targets live above the python source
-# tree to keep wheels clean — see common/BUILD.bazel for the rationale.
+# tree to keep wheels clean — see packages/metta-common/BUILD.bazel for the rationale.
 py_library(
     name = "softmax",
     srcs = glob(["src/softmax/**/*.py"]),
