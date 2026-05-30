@@ -25,13 +25,6 @@ _TEST_FILES = glob(
         ],
         deps = [
             "//packages/softmax-cli:softmax",
-            # test_cli_plugins exercises Typer entry-point discovery — it
-            # asserts `cogames` registers as a softmax subcommand. The
-            # cogames bazel target carries its src/ tree but not the
-            # installed entry-point metadata; if test_cli_plugins fails
-            # after this migration the fix is to add a runtime data dep
-            # on the cogames wheel's dist-info instead.
-            "//packages/cogames:cogames",
             "@pypi//pytest",
         ],
     )

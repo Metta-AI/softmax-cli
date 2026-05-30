@@ -1,7 +1,5 @@
 """softmax CLI — authentication and account tools."""
 
-import importlib
-import importlib.util
 import sys
 
 import httpx
@@ -29,16 +27,6 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-
-
-def _register_optional_apps() -> None:
-    if importlib.util.find_spec("cogames") is None:
-        return
-    if importlib.util.find_spec("cogames.softmax_cli") is None:
-        return
-
-    cogames_cli = importlib.import_module("cogames.softmax_cli")
-    app.add_typer(cogames_cli.app, name="cogames", rich_help_panel="Local Games")
 
 
 def _build_manual_set_token_command(server: str | None = None) -> str:
@@ -239,6 +227,3 @@ def set_token_cmd(
     api_server = server or get_api_server()
     save_cogames_user_token(api_server=api_server, token=token)
     print(f"\nToken saved for {api_server}")
-
-
-_register_optional_apps()

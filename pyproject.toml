@@ -22,9 +22,6 @@ dependencies = [
 ]
 dynamic = ["version"]
 
-[project.optional-dependencies]
-cogames = ["cogames"]
-
 [project.scripts]
 softmax = "softmax.cli:app"
 
