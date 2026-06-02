@@ -1,19 +1,6 @@
-load("@rules_python//python:defs.bzl", "py_library")
+load("//tools:py_pyproject.bzl", "py_library_pyproject")
 
-# Local source for softmax-cli. BUILD targets live above the python source
-# tree to keep wheels clean — see packages/metta-common/BUILD.bazel for the rationale.
-py_library(
+py_library_pyproject(
     name = "softmax",
-    srcs = glob(["src/softmax/**/*.py"]),
-    imports = ["src"],  # so `import softmax` resolves
-    visibility = ["//visibility:public"],
-    deps = [
-        # Mirrors packages/softmax-cli/pyproject.toml [project.dependencies].
-        "@pypi//typer",
-        "@pypi//rich",
-        "@pypi//fastapi",
-        "@pypi//uvicorn",
-        "@pypi//httpx",
-        "@pypi//pyyaml",
-    ],
+    typecheck = False,
 )
