@@ -1,4 +1,4 @@
-load("//tools:py_pyproject.bzl", "py_library_pyproject")
+load("//bazel:py_pyproject.bzl", "py_library_pyproject")
 
 py_library_pyproject(
     name = "softmax",
