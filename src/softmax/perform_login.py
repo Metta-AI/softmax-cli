@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Sequence
 
-import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +20,7 @@ from fastapi.responses import HTMLResponse
 from rich.panel import Panel
 
 from softmax._console import console
-from softmax.auth import build_browser_login_url, save_token
-from softmax.token_storage import TokenKind
+from softmax.auth import build_browser_login_url, exchange_auth_code, save_user_token
 
 
 @dataclass
@@ -242,7 +240,7 @@ def _finish_authentication(session: _CLIAuthSession, *, token: str | None = None
         return True
 
 
-def _create_app(session: _CLIAuthSession) -> FastAPI:
+def _create_app(session: _CLIAuthSession, *, api_server: str) -> FastAPI:
     app = FastAPI(title="CLI OAuth2 Callback Server")
     app.add_middleware(
         CORSMiddleware,
@@ -254,38 +252,21 @@ def _create_app(session: _CLIAuthSession) -> FastAPI:
 
     @app.get("/callback")
     async def callback(request: Request) -> HTMLResponse:
-        try:
-            token = request.query_params.get("token")
-            if not token:
-                _finish_authentication(session, error="No token received in callback")
-                return HTMLResponse(content=_error_html(error_message="No token received"), status_code=400)
+        code = request.query_params.get("code")
+        if not code:
+            _finish_authentication(session, error="No code received in callback")
+            return HTMLResponse(content=_error_html(error_message="No code received"), status_code=400)
 
-            _finish_authentication(session, token=token)
-            return HTMLResponse(content=_success_html())
+        try:
+            token = exchange_auth_code(api_server=api_server, code=code)
         except Exception as exc:
-            _finish_authentication(session, error=f"Callback error: {exc}")
-            return HTMLResponse(content=_error_html(error_message=f"Error: {exc}"), status_code=500)
+            _finish_authentication(session, error=f"Code exchange failed: {exc}")
+            return HTMLResponse(content=_error_html(error_message=f"Code exchange failed: {exc}"), status_code=500)
+
+        _finish_authentication(session, token=token)
+        return HTMLResponse(content=_success_html())
 
     return app
-
-
-def _validate_token(*, api_server: str, token: str) -> bool | None:
-    whoami_url = f"{api_server.rstrip('/')}/observatory/whoami"
-    try:
-        response = httpx.get(
-            whoami_url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=5.0,
-        )
-    except httpx.HTTPError:
-        return None
-
-    if response.status_code == 200:
-        data = response.json()
-        return data.get("subject_type") != "anonymous"
-    if response.status_code in {400, 401, 403}:
-        return False
-    return None
 
 
 def _print_login_instructions(*, auth_url: str, agent_hint: str | None) -> None:
@@ -304,25 +285,24 @@ def _print_login_instructions(*, auth_url: str, agent_hint: str | None) -> None:
     console.print()
 
 
-def _start_manual_token_prompt(*, session: _CLIAuthSession, api_server: str) -> None:
+def _start_manual_code_prompt(*, session: _CLIAuthSession, api_server: str) -> None:
     def prompt_loop() -> None:
         while not session.auth_completed.is_set():
             try:
-                token = input("Paste token here when ready: ").strip()
+                code = input("Paste auth code here when ready: ").strip()
             except EOFError:
                 return
 
             if session.auth_completed.is_set():
                 return
-            if not token:
+            if not code:
                 continue
 
-            validation_result = _validate_token(api_server=api_server, token=token)
-            if validation_result is False:
-                console.print("Invalid token. Please try again.", style="red")
+            try:
+                token = exchange_auth_code(api_server=api_server, code=code)
+            except Exception as exc:
+                console.print(f"Code exchange failed: {exc}", style="red")
                 continue
-            if validation_result is None:
-                console.print("Could not validate token right now. Saving it anyway.", style="yellow")
 
             _finish_authentication(session, token=token)
             return
@@ -330,9 +310,9 @@ def _start_manual_token_prompt(*, session: _CLIAuthSession, api_server: str) -> 
     threading.Thread(target=prompt_loop, daemon=True).start()
 
 
-def _run_server(*, session: _CLIAuthSession, port: int) -> None:
+def _run_server(*, session: _CLIAuthSession, port: int, api_server: str) -> None:
     try:
-        app = _create_app(session)
+        app = _create_app(session, api_server=api_server)
         config = uvicorn.Config(
             app=app,
             host="127.0.0.1",
@@ -361,10 +341,8 @@ def _wait_for_callback_server_to_start(*, session: _CLIAuthSession, port: int, t
 def do_interactive_login_for_token(
     *,
     api_server: str,
-    token_kind: TokenKind,
     agent_hint: str | None,
     open_browser: bool,
-    save_token_under: str | None = None,
 ) -> None:
     """Run the CLI browser login flow and save the resulting token."""
     assert sys.stdin.isatty(), "This function should only be called when stdin is a TTY"
@@ -373,7 +351,9 @@ def do_interactive_login_for_token(
     callback_url: str | None = None
     port = _find_free_port()
 
-    threading.Thread(target=_run_server, kwargs={"session": session, "port": port}, daemon=True).start()
+    threading.Thread(
+        target=_run_server, kwargs={"session": session, "port": port, "api_server": api_server}, daemon=True
+    ).start()
     if _wait_for_callback_server_to_start(session=session, port=port):
         callback_url = f"http://127.0.0.1:{port}/callback"
     session.error = None
@@ -383,14 +363,13 @@ def do_interactive_login_for_token(
     if open_browser:
         _open_browser(url=auth_url)
 
-    _start_manual_token_prompt(session=session, api_server=api_server)
+    _start_manual_code_prompt(session=session, api_server=api_server)
     session.auth_completed.wait()
     if session.error:
         raise RuntimeError(session.error)
     if not session.token:
         raise RuntimeError("No token received")
 
-    token_server = save_token_under or api_server
-    save_token(token_kind=token_kind, server=token_server, token=session.token)
-    print(f"\nToken saved for {token_server}")
+    save_user_token(server=api_server, token=session.token)
+    print(f"\nToken saved for {api_server}")
     print()

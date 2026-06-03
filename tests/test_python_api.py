@@ -8,13 +8,12 @@ import pytest
 
 import softmax
 import softmax.cogames as softmax_cogames
-from softmax.auth import load_token
-from softmax.token_storage import TokenKind, save_token
+from softmax.auth import load_user_token, save_player_session, save_user_token
 
 
 def test_login_returns_saved_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="saved-token")
+    save_user_token(server="https://softmax.com/api", token="saved-token")
 
     called = {"interactive": False}
     monkeypatch.setattr(
@@ -23,7 +22,7 @@ def test_login_returns_saved_token(monkeypatch: pytest.MonkeyPatch, tmp_path) ->
     )
 
     assert softmax.login() == "saved-token"
-    assert load_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api") == "saved-token"
+    assert load_user_token(server="https://softmax.com/api") == "saved-token"
     assert called["interactive"] is False
 
 
@@ -32,29 +31,29 @@ def test_login_runs_interactive_flow_when_missing_token(monkeypatch: pytest.Monk
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
 
     def fake_login(**_: object) -> None:
-        save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="fresh-token")
+        save_user_token(server="https://softmax.com/api", token="fresh-token")
 
     monkeypatch.setattr("softmax.do_interactive_login_for_token", fake_login)
 
     assert softmax.login() == "fresh-token"
-    assert load_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api") == "fresh-token"
+    assert load_user_token(server="https://softmax.com/api") == "fresh-token"
 
 
-def test_login_ignores_active_only_token_without_saved_user_session(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_login_ignores_player_session_without_saved_user_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    save_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api", token="active-only-token")
+    save_player_session(server="https://softmax.com/api", token="active-only-token")
 
     called = {"interactive": False}
 
     def fake_login(**_: object) -> None:
         called["interactive"] = True
-        save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="fresh-token")
+        save_user_token(server="https://softmax.com/api", token="fresh-token")
 
     monkeypatch.setattr("softmax.do_interactive_login_for_token", fake_login)
 
     assert softmax.login() == "fresh-token"
-    assert load_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api") == "fresh-token"
+    assert load_user_token(server="https://softmax.com/api") == "fresh-token"
     assert called["interactive"] is True
 
 
@@ -150,25 +149,25 @@ def test_softmax_cogames_login_response_returns_full_response(monkeypatch: pytes
 
 def test_login_can_force_refresh_existing_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="old-token")
+    save_user_token(server="https://softmax.com/api", token="old-token")
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
 
     def fake_login(**_: object) -> None:
-        save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="new-token")
+        save_user_token(server="https://softmax.com/api", token="new-token")
 
     monkeypatch.setattr("softmax.do_interactive_login_for_token", fake_login)
 
     assert softmax.login(force=True) == "new-token"
-    assert load_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api") == "new-token"
+    assert load_user_token(server="https://softmax.com/api") == "new-token"
 
 
-def test_login_restores_saved_user_session_over_active_player_session(
+def test_login_returns_user_token_even_with_active_player_session(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    save_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api", token="player-token")
-    save_token(token_kind=TokenKind.COGAMES_USER, server="https://softmax.com/api", token="user-token")
+    save_player_session(server="https://softmax.com/api", token="player-token")
+    save_user_token(server="https://softmax.com/api", token="user-token")
 
     called = {"interactive": False}
     monkeypatch.setattr(
@@ -177,5 +176,5 @@ def test_login_restores_saved_user_session_over_active_player_session(
     )
 
     assert softmax.login() == "user-token"
-    assert load_token(token_kind=TokenKind.COGAMES, server="https://softmax.com/api") == "user-token"
+    assert load_user_token(server="https://softmax.com/api") == "user-token"
     assert called["interactive"] is False

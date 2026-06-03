@@ -36,9 +36,8 @@ uv run metta lint --fix              # ruff (also runs via the Edit/Write hook)
 ## Source layout (`src/softmax/`)
 
 - `cli.py` — the Typer app; mounts the optional `cogames` subapp via `add_typer`.
-- `auth.py` — auth/session state and token validation.
+- `auth.py` — token storage, browser login URL, and `whoami` HTTP helpers.
 - `perform_login.py` — the local FastAPI/uvicorn callback server used during `softmax login`.
-- `token_storage.py` — on-disk token persistence.
 - `cogames.py` — the optional cogames subcommand wiring.
 - `_console.py` — shared rich console helpers.
 
