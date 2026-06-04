@@ -13,6 +13,7 @@ from softmax.auth import (
     delete_all_tokens,
     exchange_auth_code,
     fetch_cogames_whoami,
+    format_exchange_error,
     get_api_server,
     load_current_token,
     load_user_token,
@@ -110,12 +111,7 @@ def login_cmd(
     try:
         do_interactive_login_for_token(
             api_server=api_server,
-            agent_hint=(
-                "If you are a coding agent, ask your human to open the URL below and give you "
-                "the auth code. Then paste the code into this window or run:\n"
-                "\n"
-                f"{_build_manual_exchange_command(server)}"
-            ),
+            agent_hint=None,
             open_browser=not no_browser,
         )
     except Exception as e:
@@ -236,6 +232,13 @@ def exchange_code_cmd(
 ) -> None:
     """Exchange a one-time auth code for a credential."""
     api_server = server or get_api_server()
-    token = exchange_auth_code(api_server=api_server, code=code)
+    try:
+        token = exchange_auth_code(api_server=api_server, code=code)
+    except httpx.HTTPStatusError as exc:
+        console.print(format_exchange_error(exc), style="red")
+        raise typer.Exit(1) from exc
+    except httpx.HTTPError as exc:
+        console.print(f"Could not reach server: {exc}", style="red")
+        raise typer.Exit(1) from exc
     save_user_token(server=api_server, token=token)
     print(f"\nToken saved for {api_server}")

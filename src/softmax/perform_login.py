@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Sequence
 
+import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +21,7 @@ from fastapi.responses import HTMLResponse
 from rich.panel import Panel
 
 from softmax._console import console
-from softmax.auth import build_browser_login_url, exchange_auth_code, save_user_token
+from softmax.auth import build_browser_login_url, exchange_auth_code, format_exchange_error, save_user_token
 
 
 @dataclass
@@ -300,8 +301,11 @@ def _start_manual_code_prompt(*, session: _CLIAuthSession, api_server: str) -> N
 
             try:
                 token = exchange_auth_code(api_server=api_server, code=code)
-            except Exception as exc:
-                console.print(f"Code exchange failed: {exc}", style="red")
+            except httpx.HTTPStatusError as exc:
+                console.print(format_exchange_error(exc), style="red")
+                continue
+            except httpx.HTTPError as exc:
+                console.print(f"Could not reach server: {exc}", style="red")
                 continue
 
             _finish_authentication(session, token=token)

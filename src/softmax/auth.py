@@ -164,3 +164,15 @@ def exchange_auth_code(*, api_server: str, code: str) -> str:
     )
     response.raise_for_status()
     return response.json()["token"]
+
+
+def format_exchange_error(exc: httpx.HTTPStatusError) -> str:
+    status = exc.response.status_code
+    if status == 410:
+        return (
+            "This auth code has already been used or expired. "
+            "If you just ran `softmax login`, your token was saved automatically — run `softmax status` to verify."
+        )
+    if status == 400:
+        return "Invalid auth code format."
+    return f"Code exchange failed (HTTP {status}): {exc.response.text}"
