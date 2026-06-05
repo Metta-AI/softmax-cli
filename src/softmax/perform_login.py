@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Sequence
 
-import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,7 +20,12 @@ from fastapi.responses import HTMLResponse
 from rich.panel import Panel
 
 from softmax._console import console
-from softmax.auth import build_browser_login_url, exchange_auth_code, format_exchange_error, save_user_token
+from softmax.auth import (
+    ExchangeFailure,
+    build_browser_login_url,
+    save_user_token,
+    try_exchange_auth_code,
+)
 
 
 @dataclass
@@ -258,13 +262,12 @@ def _create_app(session: _CLIAuthSession, *, api_server: str) -> FastAPI:
             _finish_authentication(session, error="No code received in callback")
             return HTMLResponse(content=_error_html(error_message="No code received"), status_code=400)
 
-        try:
-            token = exchange_auth_code(api_server=api_server, code=code)
-        except Exception as exc:
-            _finish_authentication(session, error=f"Code exchange failed: {exc}")
-            return HTMLResponse(content=_error_html(error_message=f"Code exchange failed: {exc}"), status_code=500)
+        result = try_exchange_auth_code(api_server=api_server, code=code)
+        if isinstance(result, ExchangeFailure):
+            _finish_authentication(session, error=result.message)
+            return HTMLResponse(content=_error_html(error_message=result.message), status_code=500)
 
-        _finish_authentication(session, token=token)
+        _finish_authentication(session, token=result.token)
         return HTMLResponse(content=_success_html())
 
     return app
@@ -299,16 +302,12 @@ def _start_manual_code_prompt(*, session: _CLIAuthSession, api_server: str) -> N
             if not code:
                 continue
 
-            try:
-                token = exchange_auth_code(api_server=api_server, code=code)
-            except httpx.HTTPStatusError as exc:
-                console.print(format_exchange_error(exc), style="red")
-                continue
-            except httpx.HTTPError as exc:
-                console.print(f"Could not reach server: {exc}", style="red")
-                continue
+            result = try_exchange_auth_code(api_server=api_server, code=code)
+            if isinstance(result, ExchangeFailure):
+                _finish_authentication(session, error=result.message)
+                return
 
-            _finish_authentication(session, token=token)
+            _finish_authentication(session, token=result.token)
             return
 
     threading.Thread(target=prompt_loop, daemon=True).start()

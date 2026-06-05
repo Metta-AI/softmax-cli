@@ -9,15 +9,15 @@ from rich.panel import Panel
 from softmax._console import console
 from softmax.auth import (
     DEFAULT_API_SERVER,
+    ExchangeFailure,
     build_browser_login_url,
     delete_all_tokens,
-    exchange_auth_code,
     fetch_cogames_whoami,
-    format_exchange_error,
     get_api_server,
     load_current_token,
     load_user_token,
     save_user_token,
+    try_exchange_auth_code,
 )
 from softmax.perform_login import do_interactive_login_for_token
 
@@ -115,7 +115,8 @@ def login_cmd(
             open_browser=not no_browser,
         )
     except Exception as e:
-        console.print(f"Error: {e}")
+        console.print()
+        console.print(f"Error: {e}", style="red", highlight=False)
         console.print()
         console.print("Authentication failed.", style="red")
         raise typer.Exit(1) from e
@@ -232,13 +233,9 @@ def exchange_code_cmd(
 ) -> None:
     """Exchange a one-time auth code for a credential."""
     api_server = server or get_api_server()
-    try:
-        token = exchange_auth_code(api_server=api_server, code=code)
-    except httpx.HTTPStatusError as exc:
-        console.print(format_exchange_error(exc), style="red")
-        raise typer.Exit(1) from exc
-    except httpx.HTTPError as exc:
-        console.print(f"Could not reach server: {exc}", style="red")
-        raise typer.Exit(1) from exc
-    save_user_token(server=api_server, token=token)
+    result = try_exchange_auth_code(api_server=api_server, code=code)
+    if isinstance(result, ExchangeFailure):
+        console.print(result.message, style="red", highlight=False)
+        raise typer.Exit(1)
+    save_user_token(server=api_server, token=result.token)
     print(f"\nToken saved for {api_server}")

@@ -14,9 +14,30 @@ DEFAULT_API_SERVER = "https://softmax.com/api"
 
 CREDENTIALS_FILE = "credentials.yaml"
 
+# Hosts that exchange_auth_code is willing to send a freshly minted auth code
+# to. The exchange step is the only place a real credential leaves the box, so
+# this is the trust boundary for the login flow. Other commands (status,
+# get-login-url, set-token, ...) are unrestricted so local dev against a custom
+# backend still works.
+_TRUSTED_HOST_SUFFIXES = (".softmax.com", ".softmax-research.net")
+_TRUSTED_EXACT_HOSTS = frozenset({"softmax.com", "localhost", "127.0.0.1", "::1"})
+
 
 def get_api_server() -> str:
     return os.environ.get("COGAMES_API_URL", DEFAULT_API_SERVER)
+
+
+class UntrustedApiServerError(Exception):
+    """Raised when exchange_auth_code is called against an untrusted host."""
+
+
+def _is_trusted_exchange_host(api_server: str) -> bool:
+    host = (urlsplit(api_server).hostname or "").lower()
+    if not host:
+        return False
+    if host in _TRUSTED_EXACT_HOSTS:
+        return True
+    return any(host.endswith(suffix) for suffix in _TRUSTED_HOST_SUFFIXES)
 
 
 # --- on-disk storage ---
@@ -157,6 +178,13 @@ def fetch_cogames_whoami(*, api_server: str | None = None, token: str) -> WhoAmI
 
 def exchange_auth_code(*, api_server: str, code: str) -> str:
     """Exchange a one-time auth code for a real credential token."""
+    if not _is_trusted_exchange_host(api_server):
+        host = urlsplit(api_server).hostname or api_server
+        raise UntrustedApiServerError(
+            f"Refusing to send auth code to untrusted host '{host}'. "
+            "Auth codes are only exchanged with softmax.com, *.softmax.com, "
+            "*.softmax-research.net, or loopback (localhost / 127.0.0.1)."
+        )
     response = httpx.post(
         f"{api_server.rstrip('/')}/observatory/credentials/auth-codes/exchange",
         json={"code": code},
@@ -166,8 +194,15 @@ def exchange_auth_code(*, api_server: str, code: str) -> str:
     return response.json()["token"]
 
 
-def format_exchange_error(exc: httpx.HTTPStatusError) -> str:
+def _format_status_error(exc: httpx.HTTPStatusError) -> str:
     status = exc.response.status_code
+    if status // 100 == 3:
+        return (
+            "Failed to exchange auth code due to a redirect. "
+            "You may have accidentally pointed --server to the frontend application URL.\n"
+            "If you have a valid code, you can still run the following command to exchange it for a token:\n\n"
+            "softmax exchange-code <code>"
+        )
     if status == 410:
         return (
             "This auth code has already been used or expired. "
@@ -176,3 +211,37 @@ def format_exchange_error(exc: httpx.HTTPStatusError) -> str:
     if status == 400:
         return "Invalid auth code format."
     return f"Code exchange failed (HTTP {status}): {exc.response.text}"
+
+
+class ExchangeSuccess(BaseModel):
+    token: str
+
+
+class ExchangeFailure(BaseModel):
+    message: str
+
+
+ExchangeOutcome = ExchangeSuccess | ExchangeFailure
+
+
+def try_exchange_auth_code(*, api_server: str, code: str) -> ExchangeOutcome:
+    """Exchange an auth code, returning a typed success/failure result.
+
+    Centralizes the error-classification ladder so every callsite (CLI command,
+    manual-paste loop, callback handler) gets the same message without repeating
+    try/except blocks.
+    """
+    try:
+        token = exchange_auth_code(api_server=api_server, code=code)
+    except UntrustedApiServerError as exc:
+        return ExchangeFailure(message=str(exc))
+    except httpx.HTTPStatusError as exc:
+        return ExchangeFailure(message=_format_status_error(exc))
+    except httpx.HTTPError:
+        return ExchangeFailure(
+            message=(
+                "Could not exchange auth code. Check that --server points at the API "
+                "(e.g. https://softmax.com/api) and try again."
+            ),
+        )
+    return ExchangeSuccess(token=token)
