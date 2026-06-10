@@ -20,6 +20,7 @@ from softmax.auth import (
     try_exchange_auth_code,
 )
 from softmax.perform_login import do_interactive_login_for_token
+from softmax.players import player_app
 
 app = typer.Typer(
     help="Softmax CLI — authentication and account tools",
@@ -27,6 +28,7 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+app.add_typer(player_app, name="player")
 
 
 def _build_manual_exchange_command(server: str | None = None) -> str:
@@ -167,6 +169,8 @@ def status_cmd(
     ),
 ) -> None:
     """Check authentication status via /whoami."""
+    from softmax.auth import get_active_player_id, load_player_session  # noqa: PLC0415
+
     api_server = server or get_api_server()
     token = load_current_token(server=api_server)
     if not token:
@@ -175,6 +179,15 @@ def status_cmd(
 
     session = fetch_cogames_whoami(api_server=api_server, token=token)
     if session.subject_type == "anonymous":
+        player_token = load_player_session(server=api_server)
+        if player_token and player_token == token:
+            player_id = get_active_player_id(server=api_server)
+            console.print(
+                f"[red]Active player session expired[/red] ({player_id})."
+                " Run [cyan]softmax player use[/cyan] to refresh"
+                " or [cyan]softmax player unset[/cyan] to revert to your user credential."
+            )
+            raise typer.Exit(1)
         console.print("[red]Token is invalid or expired.[/red] Run [cyan]softmax login[/cyan] to re-authenticate.")
         raise typer.Exit(1)
     console.print("[green]Authenticated[/green]")

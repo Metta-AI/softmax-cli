@@ -1,14 +1,29 @@
 from __future__ import annotations
 
-import importlib
 import sys
-from typing import Any, cast
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 import softmax
-import softmax.cogames as softmax_cogames
-from softmax.auth import load_user_token, save_player_session, save_user_token
+from softmax.auth import (
+    clear_active_player_session,
+    get_cached_player_session,
+    load_current_token,
+    load_player_session,
+    load_user_token,
+    save_user_token,
+    set_active_player_session,
+)
+
+
+def _activate_player(server: str, token: str, player_id: str = "ply_alpha") -> None:
+    set_active_player_session(
+        server=server,
+        player_id=player_id,
+        token=token,
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
+    )
 
 
 def test_login_returns_saved_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -42,7 +57,7 @@ def test_login_runs_interactive_flow_when_missing_token(monkeypatch: pytest.Monk
 def test_login_ignores_player_session_without_saved_user_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    save_player_session(server="https://softmax.com/api", token="active-only-token")
+    _activate_player("https://softmax.com/api", "active-only-token")
 
     called = {"interactive": False}
 
@@ -65,88 +80,6 @@ def test_login_requires_tty_when_missing_token(monkeypatch: pytest.MonkeyPatch, 
         softmax.login()
 
 
-def test_softmax_module_exposes_cogames_submodule() -> None:
-    assert cast(Any, softmax).cogames is importlib.import_module("softmax.cogames")
-
-
-def test_softmax_cogames_player_list_uses_expected_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
-
-    class FakeClient:
-        def __init__(self, *, server_url: str, token: str) -> None:
-            captured["server_url"] = server_url
-            captured["token"] = token
-
-        def __enter__(self) -> "FakeClient":
-            return self
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-        def list_players(self) -> list[str]:
-            return ["alpha", "beta"]
-
-    monkeypatch.setattr(softmax_cogames, "_get_tournament_client_class", lambda: FakeClient)
-
-    assert cast(Any, softmax).cogames.player.list("softmax-token") == ["alpha", "beta"]
-    assert captured == {
-        "server_url": "https://softmax.com/api",
-        "token": "softmax-token",
-    }
-
-
-def test_softmax_cogames_login_returns_player_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeLoginResponse:
-        token = "player-token"
-
-    class FakeClient:
-        def __init__(self, *, server_url: str, token: str) -> None:
-            self.server_url = server_url
-            self.token = token
-
-        def __enter__(self) -> "FakeClient":
-            return self
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-        def login_player(self, player_id: str) -> FakeLoginResponse:
-            assert self.server_url == "https://softmax.com/api"
-            assert self.token == "softmax-token"
-            assert player_id == "ply_alpha"
-            return FakeLoginResponse()
-
-    monkeypatch.setattr(softmax_cogames, "_get_tournament_client_class", lambda: FakeClient)
-
-    assert cast(Any, softmax).cogames.login("softmax-token", "ply_alpha") == "player-token"
-
-
-def test_softmax_cogames_login_response_returns_full_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeLoginResponse:
-        token = "player-token"
-        expires_at = "2026-02-21T12:00:00Z"
-
-    class FakeClient:
-        def __init__(self, *, server_url: str, token: str) -> None:
-            pass
-
-        def __enter__(self) -> "FakeClient":
-            return self
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-        def login_player(self, player_id: str) -> FakeLoginResponse:
-            assert player_id == "ply_alpha"
-            return FakeLoginResponse()
-
-    monkeypatch.setattr(softmax_cogames, "_get_tournament_client_class", lambda: FakeClient)
-
-    response = cast(Any, softmax).cogames.login_response("softmax-token", "ply_alpha")
-    assert response.token == "player-token"
-    assert response.expires_at == "2026-02-21T12:00:00Z"
-
-
 def test_login_can_force_refresh_existing_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     save_user_token(server="https://softmax.com/api", token="old-token")
@@ -166,7 +99,7 @@ def test_login_returns_user_token_even_with_active_player_session(
     tmp_path,
 ) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    save_player_session(server="https://softmax.com/api", token="player-token")
+    _activate_player("https://softmax.com/api", "player-token")
     save_user_token(server="https://softmax.com/api", token="user-token")
 
     called = {"interactive": False}
@@ -178,3 +111,71 @@ def test_login_returns_user_token_even_with_active_player_session(
     assert softmax.login() == "user-token"
     assert load_user_token(server="https://softmax.com/api") == "user-token"
     assert called["interactive"] is False
+
+
+def test_set_and_clear_active_player_session_preserves_user_token(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    server = "https://softmax.com/api"
+    save_user_token(server=server, token="user-token")
+    _activate_player(server, "player-token", player_id="ply_alpha")
+
+    assert load_player_session(server=server) == "player-token"
+
+    assert clear_active_player_session(server=server) is True
+    # Active pointer is gone, so the user token is what's current again.
+    assert load_player_session(server=server) is None
+    assert load_user_token(server=server) == "user-token"
+    # The cached player token survives for a fast re-activation.
+    cached = get_cached_player_session(server=server, player_id="ply_alpha")
+    assert cached is not None
+    assert cached.token == "player-token"
+
+    # Clearing again is a no-op.
+    assert clear_active_player_session(server=server) is False
+
+
+def test_changing_user_token_drops_player_sessions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    server = "https://softmax.com/api"
+    save_user_token(server=server, token="user-token")
+    _activate_player(server, "player-token", player_id="ply_alpha")
+    assert load_current_token(server=server) == "player-token"
+
+    # Re-saving the same token must NOT disturb the active player session.
+    save_user_token(server=server, token="user-token")
+    assert load_current_token(server=server) == "player-token"
+
+    # Switching the user credential invalidates the old user's player sessions,
+    # so commands act as the new user rather than the stale player.
+    save_user_token(server=server, token="new-user-token")
+    assert load_player_session(server=server) is None
+    assert get_cached_player_session(server=server, player_id="ply_alpha") is None
+    assert load_current_token(server=server) == "new-user-token"
+
+
+def test_expired_player_session_falls_through_to_user_token(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    server = "https://softmax.com/api"
+    save_user_token(server=server, token="user-token")
+
+    # Activate a player with an already-expired session.
+    set_active_player_session(
+        server=server,
+        player_id="ply_alpha",
+        token="expired-player-token",
+        expires_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+
+    # The active pointer is set, but load_player_session skips the expired token.
+    assert load_player_session(server=server) is None
+    # load_current_token falls through to the user token.
+    assert load_current_token(server=server) == "user-token"

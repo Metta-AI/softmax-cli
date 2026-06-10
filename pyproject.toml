@@ -24,7 +24,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-test = ["pytest>=8.0"]
+test = ["pytest>=8.0", "pytest-httpserver"]
 
 [project.scripts]
 softmax = "softmax.cli:app"

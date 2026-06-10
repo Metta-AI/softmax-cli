@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import sys
 from pkgutil import extend_path
 
@@ -43,10 +42,4 @@ def login(
     return token
 
 
-def __getattr__(name: str) -> object:
-    if name == "cogames":
-        return importlib.import_module("softmax.cogames")
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-__all__ = ["login", "cogames"]
+__all__ = ["login"]

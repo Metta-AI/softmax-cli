@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from typer.testing import CliRunner
 
 import softmax.perform_login as auth_module
-from softmax.auth import build_browser_login_url, load_user_token, save_player_session, save_user_token
+from softmax.auth import build_browser_login_url, load_user_token, save_user_token, set_active_player_session
 from softmax.cli import _build_manual_exchange_command, app
 from softmax.perform_login import do_interactive_login_for_token
 
 runner = CliRunner()
+
+
+def _activate_player(server: str, token: str, player_id: str = "ply_alpha") -> None:
+    set_active_player_session(
+        server=server,
+        player_id=player_id,
+        token=token,
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
+    )
 
 
 def test_authenticate_exchanges_code_via_callback(
@@ -124,7 +134,7 @@ def test_status_prints_active_subject_details(
     tmp_path,
 ) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    save_player_session(server="https://softmax.com/api", token="player-session-token")
+    _activate_player("https://softmax.com/api", "player-session-token")
 
     class FakeResponse:
         def raise_for_status(self) -> None:

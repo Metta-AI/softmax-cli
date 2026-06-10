@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
@@ -82,7 +83,14 @@ def load_user_token(*, server: str) -> str | None:
 def save_user_token(*, server: str, token: str) -> None:
     server = server.rstrip("/")
     data = _load_data()
-    data.setdefault("tokens", {})[server] = token
+    tokens = data.setdefault("tokens", {})
+    # Player sessions are owned by whoever held the user token. When the user
+    # credential changes (account switch, `login --force`, CI token rotation),
+    # the old player sessions belong to the previous user, so drop them rather
+    # than letting load_current_token keep acting as that stale player.
+    if tokens.get(server) != token:
+        data.get("player_sessions", {}).pop(server, None)
+    tokens[server] = token
     _save_data(data)
 
 
@@ -97,33 +105,91 @@ def _delete_user_token(*, server: str) -> bool:
     return True
 
 
+# --- player sessions ---
+#
+# `player_sessions[server]` holds the active player pointer plus a per-player
+# token cache so `coworld player use <id>` can re-activate a player without
+# re-minting a token until it expires. `load_current_token` returns the active
+# player's token when one is selected, so every auth-backed command transparently
+# acts as that player. Shape:
+#   player_sessions:
+#     <server>:
+#       active: ply_aaa            # currently selected player id, or absent
+#       cache:
+#         ply_aaa: {token: ply_..., expires_at: "2026-..."}
+
+
+class CachedPlayerSession(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class ServerPlayerSessions(BaseModel):
+    active: str | None = None
+    cache: dict[str, CachedPlayerSession] = Field(default_factory=dict)
+
+
+def _server_sessions(data: dict, server: str) -> ServerPlayerSessions:
+    raw = (data.get("player_sessions") or {}).get(server.rstrip("/")) or {}
+    return ServerPlayerSessions.model_validate(raw)
+
+
+def _store_server_sessions(data: dict, server: str, sessions: ServerPlayerSessions) -> None:
+    data.setdefault("player_sessions", {})[server.rstrip("/")] = sessions.model_dump(mode="json")
+
+
 def load_player_session(*, server: str) -> str | None:
-    server = server.rstrip("/")
-    sessions = _load_data().get("player_sessions", {})
-    token = sessions.get(server)
-    return token if isinstance(token, str) else None
+    """The active player's token, or None when no player is selected or expired.
+
+    Returns None for expired sessions so `load_current_token` falls through to
+    the user token rather than sending a dead player token that produces 401s.
+    """
+    sessions = _server_sessions(_load_data(), server)
+    if sessions.active is None:
+        return None
+    cached = sessions.cache.get(sessions.active)
+    if cached is None:
+        return None
+    if cached.expires_at <= datetime.now(UTC):
+        return None
+    return cached.token
 
 
-def save_player_session(*, server: str, token: str) -> None:
-    server = server.rstrip("/")
+def get_active_player_id(*, server: str) -> str | None:
+    return _server_sessions(_load_data(), server).active
+
+
+def get_cached_player_session(*, server: str, player_id: str) -> CachedPlayerSession | None:
+    return _server_sessions(_load_data(), server).cache.get(player_id)
+
+
+def set_active_player_session(*, server: str, player_id: str, token: str, expires_at: datetime) -> None:
     data = _load_data()
-    data.setdefault("player_sessions", {})[server] = token
+    sessions = _server_sessions(data, server)
+    sessions.cache[player_id] = CachedPlayerSession(token=token, expires_at=expires_at)
+    sessions.active = player_id
+    _store_server_sessions(data, server, sessions)
     _save_data(data)
 
 
-def _delete_player_session(*, server: str) -> bool:
-    server = server.rstrip("/")
+def clear_active_player_session(*, server: str) -> bool:
+    """Clear the active player pointer, reverting to the user token.
+
+    Keeps the cached tokens so a later `use` of the same player can reuse them.
+    Leaves the user token untouched.
+    """
     data = _load_data()
-    sessions = data.get("player_sessions", {})
-    if server not in sessions:
+    sessions = _server_sessions(data, server)
+    if sessions.active is None:
         return False
-    del sessions[server]
+    sessions.active = None
+    _store_server_sessions(data, server, sessions)
     _save_data(data)
     return True
 
 
 def load_current_token(*, server: str) -> str | None:
-    """Returns player_session if present, else user token."""
+    """Returns the active player session token if present, else the user token."""
     return load_player_session(server=server) or load_user_token(server=server)
 
 
@@ -132,8 +198,13 @@ def has_saved_token(*, server: str) -> bool:
 
 
 def delete_all_tokens(*, server: str) -> bool:
+    server = server.rstrip("/")
     deleted_token = _delete_user_token(server=server)
-    deleted_session = _delete_player_session(server=server)
+    data = _load_data()
+    sessions = data.get("player_sessions", {})
+    deleted_session = sessions.pop(server, None) is not None
+    if deleted_session:
+        _save_data(data)
     return deleted_token or deleted_session
 
 
