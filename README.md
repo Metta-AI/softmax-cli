@@ -29,7 +29,7 @@ uv run softmax player unset    # revert to your main user credential
 
 ```bash
 uv run metta pytest packages/softmax-cli/tests -v   # run tests
-uv run metta lint --fix                              # lint/format
+./bazel/fix_lint.sh                              # lint/format
 ```
 
 See [AGENTS.md](AGENTS.md) for the source layout and versioning/compatibility notes.

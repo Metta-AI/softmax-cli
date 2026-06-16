@@ -37,7 +37,7 @@ Tests cover auth/login, the Python API, player identity switching, and CLI plugi
 ## Lint
 
 ```bash
-uv run metta lint --fix              # ruff (also runs via the Edit/Write hook)
+./bazel/fix_lint.sh              # ruff (also runs via the Edit/Write hook)
 ```
 
 ## Source layout (`src/softmax/`)
