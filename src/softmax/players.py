@@ -53,6 +53,17 @@ def list_players(*, server: str, token: str) -> list[PlayerResponse]:
     return [PlayerResponse.model_validate(entry) for entry in response.json()]
 
 
+def create_player(*, server: str, token: str, name: str) -> PlayerResponse:
+    response = httpx.post(
+        f"{server.rstrip('/')}/observatory/players",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": name},
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    return PlayerResponse.model_validate(response.json())
+
+
 def login_player(*, server: str, token: str, player_id: str) -> PlayerLoginResponse:
     response = httpx.post(
         f"{server.rstrip('/')}/observatory/players/{player_id}/login",
@@ -100,6 +111,15 @@ def player_list(
     console.print(table)
     if active_id is None:
         console.print("[dim]No active player; commands act as your main user.[/dim]")
+
+
+@player_app.command("create")
+def player_create(
+    name: Annotated[str, typer.Argument(help="Name for the new player.")],
+    server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
+) -> None:
+    player = create_player(server=server, token=_user_token(server), name=name)
+    console.print(f"[green]Created player[/green] [bold]{player.name}[/bold] ({player.id})")
 
 
 @player_app.command("use")
