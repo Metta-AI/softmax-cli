@@ -117,8 +117,12 @@ def player_list(
 def player_create(
     name: Annotated[str, typer.Argument(help="Name for the new player.")],
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
+    json_output: Annotated[bool, typer.Option("--json", help="Print raw JSON.")] = False,
 ) -> None:
     player = create_player(server=server, token=_user_token(server), name=name)
+    if json_output:
+        print(json.dumps(player.model_dump(mode="json"), indent=2))
+        return
     console.print(f"[green]Created player[/green] [bold]{player.name}[/bold] ({player.id})")
 
 

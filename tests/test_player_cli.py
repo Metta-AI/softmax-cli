@@ -92,6 +92,33 @@ def test_list_json_includes_active_flag(httpserver: HTTPServer, _mock_user_auth:
     assert by_id[PLAYER_BETA["id"]] is False
 
 
+def test_create_outputs_id(httpserver: HTTPServer, _mock_user_auth: None) -> None:
+    server = httpserver.url_for("")
+    httpserver.expect_request(
+        "/observatory/players",
+        method="POST",
+        headers={"Authorization": "Bearer user-token"},
+    ).respond_with_json(PLAYER_BETA)
+
+    result = CliRunner().invoke(app, ["player", "create", "Beta", "--server", server])
+
+    assert result.exit_code == 0, result.output
+    assert "Created player" in result.output
+    assert PLAYER_BETA["id"] in result.output
+
+
+def test_create_json(httpserver: HTTPServer, _mock_user_auth: None) -> None:
+    server = httpserver.url_for("")
+    httpserver.expect_request("/observatory/players", method="POST").respond_with_json(PLAYER_BETA)
+
+    result = CliRunner().invoke(app, ["player", "create", "Beta", "--server", server, "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["id"] == PLAYER_BETA["id"]
+    assert payload["name"] == "Beta"
+
+
 def test_use_mints_and_activates(httpserver: HTTPServer, _mock_user_auth: None) -> None:
     server = httpserver.url_for("")
     expires_at = (datetime.now(UTC) + timedelta(hours=24)).isoformat()
