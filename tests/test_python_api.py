@@ -4,8 +4,11 @@ import sys
 from datetime import UTC, datetime, timedelta
 
 import pytest
+import yaml
+from pydantic import ValidationError
 
 import softmax
+import softmax.auth as auth
 from softmax.auth import (
     clear_active_player_session,
     get_cached_player_session,
@@ -24,6 +27,65 @@ def _activate_player(server: str, token: str, player_id: str = "ply_alpha") -> N
         token=token,
         expires_at=datetime.now(UTC) + timedelta(hours=24),
     )
+
+
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        {"tokens": {"https://softmax.com/api": 123}},
+        {
+            "player_sessions": {
+                "https://softmax.com/api": {"active": ["ply_alpha"], "cache": {}},
+            },
+        },
+    ],
+)
+def test_malformed_credentials_fail_validation(monkeypatch: pytest.MonkeyPatch, tmp_path, credentials) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_dir = tmp_path / ".softmax"
+    config_dir.mkdir()
+    (config_dir / "credentials.yaml").write_text(yaml.safe_dump(credentials))
+
+    with pytest.raises(ValidationError):
+        auth._load_data()
+
+
+def test_unknown_credential_fields_survive_save(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_dir = tmp_path / ".softmax"
+    config_dir.mkdir()
+    credentials_path = config_dir / "credentials.yaml"
+    credentials_path.write_text(yaml.safe_dump({"credential_version": {"major": 2}}))
+
+    save_user_token(server="https://softmax.com/api", token="user-token")
+
+    saved = yaml.safe_load(credentials_path.read_text())
+    assert saved["credential_version"] == {"major": 2}
+
+
+def test_delete_all_tokens_is_one_credentials_update(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    server = "https://softmax.com/api"
+    save_user_token(server=server, token="user-token")
+    _activate_player(server, "player-token")
+    credentials = auth._load_data()
+    calls = {"loads": 0, "saves": 0}
+
+    def load() -> auth.Credentials:
+        calls["loads"] += 1
+        return credentials
+
+    def save(data: auth.Credentials) -> None:
+        calls["saves"] += 1
+        assert data is credentials
+
+    monkeypatch.setattr(auth, "_load_data", load)
+    monkeypatch.setattr(auth, "_save_data", save)
+
+    assert auth.delete_all_tokens(server=server) is True
+    assert calls == {"loads": 1, "saves": 1}
+    assert server not in credentials.tokens
+    assert server not in credentials.player_sessions
 
 
 def test_login_returns_saved_token(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

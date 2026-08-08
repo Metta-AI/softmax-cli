@@ -9,7 +9,7 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import httpx
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 DEFAULT_API_SERVER = "https://softmax.com/api"
 
@@ -44,6 +44,23 @@ def _is_trusted_exchange_host(api_server: str) -> bool:
 # --- on-disk storage ---
 
 
+class CachedPlayerSession(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class ServerPlayerSessions(BaseModel):
+    active: str | None = None
+    cache: dict[str, CachedPlayerSession] = Field(default_factory=dict)
+
+
+class Credentials(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    tokens: dict[str, str] = Field(default_factory=dict)
+    player_sessions: dict[str, ServerPlayerSessions] = Field(default_factory=dict)
+
+
 def _config_dir() -> Path:
     config_dir = Path.home() / ".softmax"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -54,19 +71,19 @@ def _credentials_path() -> Path:
     return _config_dir() / CREDENTIALS_FILE
 
 
-def _load_data() -> dict:
+def _load_data() -> Credentials:
     cred_path = _credentials_path()
     if not cred_path.exists():
-        return {"tokens": {}, "player_sessions": {}}
+        return Credentials()
 
     with open(cred_path, "r") as f:
-        return yaml.safe_load(f) or {"tokens": {}, "player_sessions": {}}
+        return Credentials.model_validate(yaml.safe_load(f) or {})
 
 
-def _save_data(data: dict) -> None:
+def _save_data(data: Credentials) -> None:
     cred_path = _credentials_path()
     with open(cred_path, "w") as f:
-        yaml.safe_dump(data, f, default_flow_style=False)
+        yaml.safe_dump(data.model_dump(mode="json"), f, default_flow_style=False)
     os.chmod(cred_path, 0o600)
 
 
@@ -75,34 +92,20 @@ def _save_data(data: dict) -> None:
 
 def load_user_token(*, server: str) -> str | None:
     server = server.rstrip("/")
-    tokens = _load_data().get("tokens", {})
-    token = tokens.get(server)
-    return token if isinstance(token, str) else None
+    return _load_data().tokens.get(server)
 
 
 def save_user_token(*, server: str, token: str) -> None:
     server = server.rstrip("/")
     data = _load_data()
-    tokens = data.setdefault("tokens", {})
     # Player sessions are owned by whoever held the user token. When the user
     # credential changes (account switch, `login --force`, CI token rotation),
     # the old player sessions belong to the previous user, so drop them rather
     # than letting load_current_token keep acting as that stale player.
-    if tokens.get(server) != token:
-        data.get("player_sessions", {}).pop(server, None)
-    tokens[server] = token
+    if data.tokens.get(server) != token:
+        data.player_sessions.pop(server, None)
+    data.tokens[server] = token
     _save_data(data)
-
-
-def _delete_user_token(*, server: str) -> bool:
-    server = server.rstrip("/")
-    data = _load_data()
-    tokens = data.get("tokens", {})
-    if server not in tokens:
-        return False
-    del tokens[server]
-    _save_data(data)
-    return True
 
 
 # --- player sessions ---
@@ -119,23 +122,12 @@ def _delete_user_token(*, server: str) -> bool:
 #         ply_aaa: {token: ply_..., expires_at: "2026-..."}
 
 
-class CachedPlayerSession(BaseModel):
-    token: str
-    expires_at: datetime
+def _server_sessions(data: Credentials, server: str) -> ServerPlayerSessions:
+    return data.player_sessions.get(server.rstrip("/"), ServerPlayerSessions())
 
 
-class ServerPlayerSessions(BaseModel):
-    active: str | None = None
-    cache: dict[str, CachedPlayerSession] = Field(default_factory=dict)
-
-
-def _server_sessions(data: dict, server: str) -> ServerPlayerSessions:
-    raw = (data.get("player_sessions") or {}).get(server.rstrip("/")) or {}
-    return ServerPlayerSessions.model_validate(raw)
-
-
-def _store_server_sessions(data: dict, server: str, sessions: ServerPlayerSessions) -> None:
-    data.setdefault("player_sessions", {})[server.rstrip("/")] = sessions.model_dump(mode="json")
+def _store_server_sessions(data: Credentials, server: str, sessions: ServerPlayerSessions) -> None:
+    data.player_sessions[server.rstrip("/")] = sessions
 
 
 def load_player_session(*, server: str) -> str | None:
@@ -199,11 +191,10 @@ def has_saved_token(*, server: str) -> bool:
 
 def delete_all_tokens(*, server: str) -> bool:
     server = server.rstrip("/")
-    deleted_token = _delete_user_token(server=server)
     data = _load_data()
-    sessions = data.get("player_sessions", {})
-    deleted_session = sessions.pop(server, None) is not None
-    if deleted_session:
+    deleted_token = data.tokens.pop(server, None) is not None
+    deleted_session = data.player_sessions.pop(server, None) is not None
+    if deleted_token or deleted_session:
         _save_data(data)
     return deleted_token or deleted_session
 
