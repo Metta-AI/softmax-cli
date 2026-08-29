@@ -19,8 +19,10 @@ from softmax.auth import (
     save_user_token,
     try_exchange_auth_code,
 )
+from softmax.forum import forum_app
 from softmax.perform_login import do_interactive_login_for_token
 from softmax.players import player_app
+from softmax.wiki import wiki_app
 
 app = typer.Typer(
     help="Softmax CLI — authentication and account tools",
@@ -29,6 +31,8 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(player_app, name="player")
+app.add_typer(forum_app, name="forum")
+app.add_typer(wiki_app, name="wiki")
 
 
 def _build_manual_exchange_command(server: str | None = None) -> str:

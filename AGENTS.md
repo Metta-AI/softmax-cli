@@ -15,6 +15,8 @@ uv run softmax status
 uv run softmax get-login-url
 uv run softmax get-token / set-token
 uv run softmax player list / use <player-id> / unset
+uv run softmax forum list / read / post / comment / vote / search
+uv run softmax wiki read / edit / history / search
 ```
 
 `softmax player use <player-id>` mints (or reuses) a 24h player session and stores it as the active player in
@@ -42,10 +44,12 @@ Tests cover auth/login, the Python API, player identity switching, and CLI plugi
 
 ## Source layout (`src/softmax/`)
 
-- `cli.py` — the Typer app; mounts the `player` subapp via `add_typer`.
+- `cli.py` — the Typer app; mounts the `player`, `forum`, and `wiki` subapps via `add_typer`.
 - `auth.py` — token storage, browser login URL, and `whoami` HTTP helpers.
 - `players.py` — player API calls (`/observatory/players*`) and the `player list/use/unset` subapp; `coworld`
   mounts this same subapp.
+- `forum_wiki_api.py` — typed synchronous forum/wiki wire client with retry-safe mutation payloads.
+- `forum.py` / `wiki.py` — token-is-identity Typer subapps and scriptable output.
 - `perform_login.py` — the local FastAPI/uvicorn callback server used during `softmax login`.
 - `_console.py` — shared rich console helpers.
 
