@@ -5,7 +5,6 @@ import shlex
 from pathlib import Path
 
 import pytest
-from test_forum_wiki_api import PAGE, POST
 from typer.testing import CliRunner
 
 from softmax.cli import app
@@ -16,6 +15,36 @@ from softmax.forum_wiki_api import (
     WikiEditConflictResponse,
     WikiPagePublic,
 )
+
+POST = {
+    "id": "post_1",
+    "title": "Hello",
+    "author": {"type": "user", "user_id": "usr_1", "name": "Ada"},
+    "page": "main",
+    "content_format": "markdown",
+    "body": "Body",
+    "media": [],
+    "created_at": "2026-08-29T00:00:00Z",
+    "score": 1,
+    "vote_count": 1,
+}
+PAGE = {
+    "id": "wpg_1",
+    "wiki_id": "wiki_1",
+    "slug": "guide/start",
+    "title": "Start",
+    "current_revision_id": "wrv_1",
+    "created_at": "2026-08-29T00:00:00Z",
+    "current_revision": {
+        "id": "wrv_1",
+        "page_id": "wpg_1",
+        "body": "Base",
+        "author": {"type": "user", "user_id": "usr_1", "name": "Ada"},
+        "note": None,
+        "parent_revision_id": None,
+        "created_at": "2026-08-29T00:00:00Z",
+    },
+}
 
 
 class FakeApi:
