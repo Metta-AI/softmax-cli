@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -84,7 +85,18 @@ def test_wiki_edit_conflict_writes_three_files_and_prints_merge_command(
 
     result = CliRunner().invoke(
         app,
-        ["wiki", "edit", "global", "guide/start", "--file", str(proposed)],
+        [
+            "wiki",
+            "edit",
+            "global",
+            "guide/start",
+            "--file",
+            str(proposed),
+            "--title",
+            "Guide's start",
+            "--note",
+            "Resolve conflict; keep examples",
+        ],
     )
 
     assert result.exit_code != 0
@@ -93,4 +105,19 @@ def test_wiki_edit_conflict_writes_three_files_and_prints_merge_command(
     assert (conflict_dir / "proposed.md").read_text() == "Proposed body"
     assert "git merge-file" in result.output
     assert str(conflict_dir / "proposed.md") in result.output
-    assert "softmax wiki edit global guide/start --file" in result.output
+    retry_command = next(line for line in result.output.splitlines() if line.startswith("softmax wiki edit"))
+    assert shlex.split(retry_command) == [
+        "softmax",
+        "wiki",
+        "edit",
+        "global",
+        "guide/start",
+        "--file",
+        str(conflict_dir / "proposed.md"),
+        "--server",
+        "https://softmax.com/api",
+        "--title",
+        "Guide's start",
+        "--note",
+        "Resolve conflict; keep examples",
+    ]

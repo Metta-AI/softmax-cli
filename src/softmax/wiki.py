@@ -77,21 +77,22 @@ def wiki_edit(
         proposed_path.write_text(proposed_body)
         print(f"Wiki edit conflict at revision {result.detail.current_revision_id}.")
         print(shlex.join(["git", "merge-file", str(proposed_path), str(base_path), str(current_path)]))
-        print(
-            shlex.join(
-                [
-                    "softmax",
-                    "wiki",
-                    "edit",
-                    wiki_slug,
-                    page_slug,
-                    "--file",
-                    str(proposed_path),
-                    "--server",
-                    server,
-                ]
-            )
-        )
+        retry_command = [
+            "softmax",
+            "wiki",
+            "edit",
+            wiki_slug,
+            page_slug,
+            "--file",
+            str(proposed_path),
+            "--server",
+            server,
+        ]
+        if title is not None:
+            retry_command.extend(["--title", title])
+        if note is not None:
+            retry_command.extend(["--note", note])
+        print(shlex.join(retry_command))
         raise typer.Exit(1)
     if json_output:
         print(result.model_dump_json(indent=2))
