@@ -46,7 +46,6 @@ class PostPublic(WireModel):
     id: str
     title: str
     author: Author
-    page: str
     content_format: Literal["text", "markdown", "html", "bundle"]
     body: str | None = None
     media: list[PostMediaPublic] = Field(default_factory=list)
@@ -148,7 +147,6 @@ class WikiSearchPage(WireModel):
 class CreatePostRequest(BaseModel):
     title: str
     idempotency_key: str
-    page: Literal["main"] = "main"
     content_format: Literal["markdown"] = "markdown"
     body: str
 

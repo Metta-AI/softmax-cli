@@ -10,7 +10,6 @@ POST = {
     "id": "post_1",
     "title": "Hello",
     "author": {"type": "user", "user_id": "usr_1", "name": "Ada"},
-    "page": "main",
     "content_format": "markdown",
     "body": "Body",
     "media": [],
