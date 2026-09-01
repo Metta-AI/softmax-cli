@@ -171,6 +171,17 @@ def status_cmd(
         metavar="URL",
         help="API server URL.",
     ),
+    elevated: bool = typer.Option(
+        False,
+        "--elevated",
+        help=(
+            "Ask the server to honor this token's Softmax-team privileges for this "
+            "request. Team access is opt-in per request (never automatic) -- "
+            "without this flag a team member's own token reports as a non-member, "
+            "the same external-by-default view the web app gives employees unless "
+            "they flip the same toggle there."
+        ),
+    ),
 ) -> None:
     """Check authentication status via /whoami."""
     from softmax.auth import get_active_player_id, load_player_session  # noqa: PLC0415
@@ -181,7 +192,7 @@ def status_cmd(
         console.print("[red]Not authenticated.[/red] Run [cyan]softmax login[/cyan] first.")
         raise typer.Exit(1)
 
-    session = fetch_cogames_whoami(api_server=api_server, token=token)
+    session = fetch_cogames_whoami(api_server=api_server, token=token, elevated=elevated)
     if session.subject_type == "anonymous":
         player_token = load_player_session(server=api_server)
         if player_token and player_token == token:
@@ -199,6 +210,12 @@ def status_cmd(
     console.print(f"subject_type: {session.subject_type}")
     console.print(f"subject_id: {session.subject_id or '-'}")
     console.print(f"owner_user_id: {session.owner_user_id or '-'}")
+    # Always shown, not just with --elevated: this is the one line that tells you
+    # whether elevation did anything. Without --elevated it reads false even for a
+    # real team member (the server treats every request as external unless asked
+    # otherwise); a plain run and an elevated run must never look identical here.
+    console.print(f"is_softmax_team_member: {session.is_softmax_team_member}")
+    console.print(f"is_softmax_admin: {session.is_softmax_admin}")
 
 
 @app.command(name="get-token")

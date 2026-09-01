@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from typer.testing import CliRunner
 
+import softmax.auth as softmax_auth
 import softmax.perform_login as auth_module
 from softmax.auth import build_browser_login_url, load_user_token, save_user_token, set_active_player_session
 from softmax.cli import _build_manual_exchange_command, app
@@ -158,6 +159,190 @@ def test_status_prints_active_subject_details(
     assert "subject_type: player" in result.stdout
     assert "subject_id: ply_alpha" in result.stdout
     assert "owner_user_id: regular@example.com" in result.stdout
+
+
+def test_fetch_whoami_omits_elevated_header_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "team@example.com",
+                "is_softmax_team_member": False,
+                "is_softmax_admin": False,
+                "subject_type": "user",
+                "subject_id": "user-team-1",
+                "owner_user_id": "user-team-1",
+                "scopes": [],
+            }
+
+    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+
+    softmax_auth.fetch_cogames_whoami(api_server="https://softmax.com/api", token="usr_x")
+
+    assert "X-Use-Elevated-Privileges" not in captured["headers"]  # type: ignore[operator]
+
+
+def test_fetch_whoami_sends_elevated_header_when_requested(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A team member's own CLI token must be able to ask for the privileges it
+
+    already carries (auth.py's `_apply_elevation_gate` treats every request as
+    external unless it opts in). Without this header, softmax-cli had no way to
+    ever exercise team-gated routes -- not because the token minted the wrong
+    identity, but because nothing ever asked for the privileges it already held.
+    """
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "team@example.com",
+                "is_softmax_team_member": True,
+                "is_softmax_admin": False,
+                "subject_type": "user",
+                "subject_id": "user-team-1",
+                "owner_user_id": "user-team-1",
+                "scopes": [],
+            }
+
+    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+
+    result = softmax_auth.fetch_cogames_whoami(api_server="https://softmax.com/api", token="usr_x", elevated=True)
+
+    assert captured["headers"]["X-Use-Elevated-Privileges"] == "true"  # type: ignore[index]
+    assert result.is_softmax_team_member is True
+
+
+def test_status_elevated_flag_requests_team_privileges(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_user_token(server="https://softmax.com/api", token="usr_team")
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "team@example.com",
+                "is_softmax_team_member": True,
+                "is_softmax_admin": False,
+                "subject_type": "user",
+                "subject_id": "user-team-1",
+                "owner_user_id": "user-team-1",
+                "scopes": [],
+            }
+
+    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+
+    result = runner.invoke(app, ["status", "--elevated"])
+    assert result.exit_code == 0
+    assert captured["headers"]["X-Use-Elevated-Privileges"] == "true"  # type: ignore[index]
+
+
+def test_status_without_elevated_flag_does_not_request_team_privileges(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_user_token(server="https://softmax.com/api", token="usr_team")
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "team@example.com",
+                "is_softmax_team_member": False,
+                "is_softmax_admin": False,
+                "subject_type": "user",
+                "subject_id": "user-team-1",
+                "owner_user_id": "user-team-1",
+                "scopes": [],
+            }
+
+    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+
+    result = runner.invoke(app, ["status"])
+    assert result.exit_code == 0
+    assert "X-Use-Elevated-Privileges" not in captured["headers"]  # type: ignore[operator]
+
+
+def test_status_output_differs_between_elevated_and_non_elevated_for_a_team_member(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Sending the header is not the point -- a person reading `status` output must
+
+    be able to SEE that elevation changed anything. Before this test's fix, the
+    printed lines never included is_softmax_team_member/is_softmax_admin at all,
+    so a plain run and an `--elevated` run against the same stored token produced
+    byte-identical stdout even though the server's answer genuinely differed.
+    """
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_user_token(server="https://softmax.com/api", token="usr_team")
+
+    class FakeResponse:
+        def __init__(self, is_team_member: bool) -> None:
+            self._is_team_member = is_team_member
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "user_email": "team@example.com",
+                "is_softmax_team_member": self._is_team_member,
+                "is_softmax_admin": False,
+                "subject_type": "user",
+                "subject_id": "user-team-1",
+                "owner_user_id": "user-team-1",
+                "scopes": [],
+            }
+
+    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+        # Mirrors the real server: same stored token, the elevation header is the
+        # only thing that flips is_softmax_team_member (auth.py's elevation gate).
+        is_team_member = headers.get("X-Use-Elevated-Privileges") == "true"
+        return FakeResponse(is_team_member)
+
+    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+
+    plain = runner.invoke(app, ["status"])
+    elevated = runner.invoke(app, ["status", "--elevated"])
+
+    assert plain.exit_code == 0
+    assert elevated.exit_code == 0
+    assert plain.stdout != elevated.stdout, "plain and --elevated status output must not be indistinguishable"
+    assert "is_softmax_team_member: False" in plain.stdout
+    assert "is_softmax_team_member: True" in elevated.stdout
 
 
 def test_interactive_login_requires_tty(

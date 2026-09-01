@@ -201,6 +201,16 @@ def delete_all_tokens(*, server: str) -> bool:
 
 # --- HTTP / URL helpers ---
 
+# app_backend treats every credential as an external (non-team) caller unless the
+# request opts in with this header (metta.app_backend.auth._apply_elevation_gate,
+# spec 0080). That flip landed after softmax-cli shipped: the CLI has never sent
+# this header on any request, so a team member's own token silently resolved as
+# `is_softmax_team_member: false` on every call -- not because the token minted
+# the wrong identity, but because nothing ever asked for the privileges it
+# already carries. Opt-in only, never automatic: a team member must explicitly
+# ask (e.g. `softmax status --elevated`), exactly like the web app's toggle.
+ELEVATED_PRIVILEGES_HEADER = "X-Use-Elevated-Privileges"
+
 
 class WhoAmIResponse(BaseModel):
     user_email: str
@@ -227,11 +237,14 @@ def build_browser_login_url(api_server: str, *, callback_url: str | None = None)
     return urlunsplit((parsed.scheme, parsed.netloc, browser_path, query, ""))
 
 
-def fetch_cogames_whoami(*, api_server: str | None = None, token: str) -> WhoAmIResponse:
+def fetch_cogames_whoami(*, api_server: str | None = None, token: str, elevated: bool = False) -> WhoAmIResponse:
     server = api_server or DEFAULT_API_SERVER
+    headers = {"Authorization": f"Bearer {token}"}
+    if elevated:
+        headers[ELEVATED_PRIVILEGES_HEADER] = "true"
     response = httpx.get(
         f"{server.rstrip('/')}/observatory/whoami",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=headers,
         timeout=10.0,
     )
     response.raise_for_status()
