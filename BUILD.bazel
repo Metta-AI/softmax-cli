@@ -1,3 +1,8 @@
 load("//bazel:pyproject.bzl", "pyproject_library")
 
 pyproject_library(typecheck = False)
+
+exports_files(
+    ["pyproject.toml"],
+    visibility = ["//:__pkg__"],
+)
