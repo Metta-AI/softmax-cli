@@ -214,6 +214,7 @@ ELEVATED_PRIVILEGES_HEADER = "X-Use-Elevated-Privileges"
 
 class WhoAmIResponse(BaseModel):
     user_email: str
+    name: str | None = None  # the account's display name, when it has one
     is_softmax_team_member: bool = False
     is_softmax_admin: bool = False
     subject_type: str = "user"

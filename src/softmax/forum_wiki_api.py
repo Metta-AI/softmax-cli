@@ -10,6 +10,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from softmax import auth
+from softmax._http import observatory_client
 
 RETRYABLE_STATUS_CODES = frozenset({502, 503, 504})
 REQUEST_ATTEMPTS = 3
@@ -179,13 +180,7 @@ class ForumWikiApi:
         token: str,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
-        resolved_transport = transport or httpx.HTTPTransport(retries=2)
-        self._client = httpx.Client(
-            base_url=f"{server.rstrip('/')}/observatory/v2/",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10.0,
-            transport=resolved_transport,
-        )
+        self._client = observatory_client(server=server, token=token, base="/observatory/v2/", transport=transport)
 
     @classmethod
     def from_current_token(cls, server: str) -> Self:

@@ -4,8 +4,10 @@ import sys
 
 import httpx
 import typer
+from rich._spinners import SPINNERS
 from rich.panel import Panel
 
+from softmax import card
 from softmax._console import console
 from softmax.auth import (
     DEFAULT_API_SERVER,
@@ -273,3 +275,51 @@ def exchange_code_cmd(
         raise typer.Exit(1)
     save_user_token(server=api_server, token=result.token)
     print(f"\nToken saved for {api_server}")
+
+
+# `softmax card` loader: the card's own 8-cell stat bar as a softmax
+# distribution whose peak sweeps while the standings load. Registered into
+# rich's spinner table so console.status can animate it.
+_WAVE = "▁▂▄▆█▆▄▂"
+SPINNERS["softmax"] = {
+    "interval": 90,
+    "frames": [_WAVE[-i:] + _WAVE[:-i] for i in range(len(_WAVE))],
+}
+
+
+@app.command(name="card")
+def card_cmd(
+    name: str | None = typer.Argument(None, help="Wordmark override (A-Z and space)."),
+    demo: bool = typer.Option(False, "--demo", help="Render the sample card instead of live standings."),
+) -> None:
+    """Render your player card: live league standings as a terminal collectible."""
+    if demo:
+        cards = [card.DEMO_CARD]
+    else:
+        api_server = get_api_server()
+        token = load_user_token(server=api_server)
+        if not token:
+            console.print(
+                "[red]Not authenticated.[/red] Run [cyan]softmax login[/cyan] first,"
+                " or try [cyan]softmax card --demo[/cyan]."
+            )
+            raise typer.Exit(1)
+        if console.is_terminal:
+            # The loader line erases itself once the card is ready; piped
+            # output never sees it.
+            with console.status("[dim]dealing your card[/dim]", spinner="softmax", spinner_style="dim") as status:
+                cards = card.fetch_player_cards(
+                    api_server, token, on_stage=lambda line: status.update(f"[dim]{line}[/dim]")
+                )
+        else:
+            cards = card.fetch_player_cards(api_server, token)
+    if name:
+        mark = name.upper()
+        unsupported = sorted(set(mark) - card.SUPPORTED_NAME_CHARS)
+        if unsupported:
+            supported = " ".join(sorted(card.SUPPORTED_NAME_CHARS))
+            raise typer.BadParameter(f"the pixel font has no {' '.join(unsupported)} (available: {supported})")
+        cards = [c.model_copy(update={"name": mark}) for c in cards]
+    print("\n\n".join(card.render(c) for c in cards))
+    if demo:
+        console.print("  [dim]demo standings[/dim]")
