@@ -11,6 +11,8 @@ import httpx
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from softmax._http import observatory_client
+
 DEFAULT_API_SERVER = "https://softmax.com/api"
 
 CREDENTIALS_FILE = "credentials.yaml"
@@ -243,11 +245,8 @@ def fetch_cogames_whoami(*, api_server: str | None = None, token: str, elevated:
     headers = {"Authorization": f"Bearer {token}"}
     if elevated:
         headers[ELEVATED_PRIVILEGES_HEADER] = "true"
-    response = httpx.get(
-        f"{server.rstrip('/')}/observatory/whoami",
-        headers=headers,
-        timeout=10.0,
-    )
+    with observatory_client(server=server, token=token) as client:
+        response = client.get("/whoami", headers=headers)
     response.raise_for_status()
     return WhoAmIResponse.model_validate(response.json())
 

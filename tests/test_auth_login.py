@@ -152,7 +152,7 @@ def test_status_prints_active_subject_details(
                 "scopes": [],
             }
 
-    monkeypatch.setattr("softmax.auth.httpx.get", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", lambda *args, **kwargs: FakeResponse())
 
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 0
@@ -179,11 +179,11 @@ def test_fetch_whoami_omits_elevated_header_by_default(monkeypatch: pytest.Monke
                 "scopes": [],
             }
 
-    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+    def fake_get(_client, url: str, *, headers: dict[str, str]) -> FakeResponse:
         captured["headers"] = headers
         return FakeResponse()
 
-    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", fake_get)
 
     softmax_auth.fetch_cogames_whoami(api_server="https://softmax.com/api", token="usr_x")
 
@@ -215,11 +215,11 @@ def test_fetch_whoami_sends_elevated_header_when_requested(monkeypatch: pytest.M
                 "scopes": [],
             }
 
-    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+    def fake_get(_client, url: str, *, headers: dict[str, str]) -> FakeResponse:
         captured["headers"] = headers
         return FakeResponse()
 
-    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", fake_get)
 
     result = softmax_auth.fetch_cogames_whoami(api_server="https://softmax.com/api", token="usr_x", elevated=True)
 
@@ -250,11 +250,11 @@ def test_status_elevated_flag_requests_team_privileges(
                 "scopes": [],
             }
 
-    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+    def fake_get(_client, url: str, *, headers: dict[str, str]) -> FakeResponse:
         captured["headers"] = headers
         return FakeResponse()
 
-    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", fake_get)
 
     result = runner.invoke(app, ["status", "--elevated"])
     assert result.exit_code == 0
@@ -284,11 +284,11 @@ def test_status_without_elevated_flag_does_not_request_team_privileges(
                 "scopes": [],
             }
 
-    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+    def fake_get(_client, url: str, *, headers: dict[str, str]) -> FakeResponse:
         captured["headers"] = headers
         return FakeResponse()
 
-    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", fake_get)
 
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 0
@@ -327,13 +327,13 @@ def test_status_output_differs_between_elevated_and_non_elevated_for_a_team_memb
                 "scopes": [],
             }
 
-    def fake_get(url: str, *, headers: dict[str, str], timeout: float) -> FakeResponse:
+    def fake_get(_client, url: str, *, headers: dict[str, str]) -> FakeResponse:
         # Mirrors the real server: same stored token, the elevation header is the
         # only thing that flips is_softmax_team_member (auth.py's elevation gate).
         is_team_member = headers.get("X-Use-Elevated-Privileges") == "true"
         return FakeResponse(is_team_member)
 
-    monkeypatch.setattr("softmax.auth.httpx.get", fake_get)
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", fake_get)
 
     plain = runner.invoke(app, ["status"])
     elevated = runner.invoke(app, ["status", "--elevated"])
@@ -388,7 +388,7 @@ def test_status_fails_for_anonymous_session(
                 "scopes": [],
             }
 
-    monkeypatch.setattr("softmax.auth.httpx.get", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", lambda *args, **kwargs: FakeResponse())
 
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 1
@@ -417,7 +417,7 @@ def test_login_detects_anonymous_whoami_as_invalid_token(
                 "scopes": [],
             }
 
-    monkeypatch.setattr("softmax.auth.httpx.get", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr("softmax.auth.httpx.Client.get", lambda *args, **kwargs: FakeResponse())
 
     result = runner.invoke(app, ["login", "--no-browser"])
     assert "no longer valid" in result.stdout

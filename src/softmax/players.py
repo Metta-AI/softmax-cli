@@ -12,7 +12,6 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-import httpx
 import typer
 from pydantic import BaseModel, ConfigDict
 from rich import box
@@ -20,6 +19,7 @@ from rich.table import Table
 
 from softmax import auth
 from softmax._console import console
+from softmax._http import observatory_client
 from softmax.auth import DEFAULT_API_SERVER
 
 
@@ -44,32 +44,22 @@ class PlayerLoginResponse(BaseModel):
 
 
 def list_players(*, server: str, token: str) -> list[PlayerResponse]:
-    response = httpx.get(
-        f"{server.rstrip('/')}/observatory/players",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=10.0,
-    )
+    with observatory_client(server=server, token=token) as client:
+        response = client.get("/players")
     response.raise_for_status()
     return [PlayerResponse.model_validate(entry) for entry in response.json()]
 
 
 def create_player(*, server: str, token: str, name: str) -> PlayerResponse:
-    response = httpx.post(
-        f"{server.rstrip('/')}/observatory/players",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"name": name},
-        timeout=10.0,
-    )
+    with observatory_client(server=server, token=token) as client:
+        response = client.post("/players", json={"name": name})
     response.raise_for_status()
     return PlayerResponse.model_validate(response.json())
 
 
 def login_player(*, server: str, token: str, player_id: str) -> PlayerLoginResponse:
-    response = httpx.post(
-        f"{server.rstrip('/')}/observatory/players/{player_id}/login",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=10.0,
-    )
+    with observatory_client(server=server, token=token) as client:
+        response = client.post(f"/players/{player_id}/login")
     response.raise_for_status()
     return PlayerLoginResponse.model_validate(response.json())
 
