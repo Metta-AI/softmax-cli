@@ -5,6 +5,19 @@ from softmax import rate_limits
 from softmax._http import observatory_client
 
 
+def test_observatory_client_uses_environment_proxy(monkeypatch, httpserver):
+    monkeypatch.setenv("HTTP_PROXY", httpserver.url_for(""))
+    monkeypatch.setenv("NO_PROXY", "")
+    monkeypatch.delenv("http_proxy", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    httpserver.expect_request("/observatory/whoami", headers={"Authorization": "Bearer token"}).respond_with_json(
+        {"proxied": True}
+    )
+
+    with observatory_client(server="http://proxy-only.invalid", token="token") as client:
+        assert client.get("/whoami").json() == {"proxied": True}
+
+
 @pytest.mark.parametrize("recover", [False, True])
 def test_shared_rejection_retries_preserve_the_request_and_stop(monkeypatch, recover):
     sleeps = []

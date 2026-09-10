@@ -18,7 +18,7 @@ def observatory_client(
     """Authenticated client rooted at `server`'s Observatory API.
 
     Every softmax-cli surface that keeps an Observatory client builds it here:
-    one place for the bearer header, connect retries, and redirect handling.
+    one place for the bearer header, rate-limit retries, and redirect handling.
     `base` picks the API root the caller's request paths hang off; `transport`
     lets tests inject a MockTransport.
     """
@@ -27,5 +27,5 @@ def observatory_client(
         headers={"Authorization": f"Bearer {token}"},
         timeout=timeout,
         follow_redirects=True,
-        transport=RateLimitTransport(transport or httpx.HTTPTransport(retries=2)),
+        transport=RateLimitTransport(transport),
     )
