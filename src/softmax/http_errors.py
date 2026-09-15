@@ -13,7 +13,6 @@ import json
 import sys
 from typing import Any
 
-import click
 import httpx
 import typer
 from typer.core import TyperGroup
@@ -23,16 +22,13 @@ from softmax.docs import DOCS_AUTHENTICATION_URL, DOCS_ERROR_HANDLING_URL, DOCS_
 
 REQUEST_ID_HEADER = "X-Request-Id"
 
-# typer 0.27+ vendors its own click fork: the usage errors its parser raises are
-# `typer._click.exceptions.UsageError`, unrelated to `click.UsageError`, and its main loop
-# catches `typer.Exit` rather than click's Exit. Older typer runs on the real click. Catch
-# both usage-error families so the group behaves identically under either.
+# typer >= 0.26 vendors its own click and no longer depends on the click package, so the
+# usage errors its parser raises come from `typer._click`, not `click`. Older typer parses
+# with the real click. Everything else this module needs (echo, Context, Exit) is public typer.
 try:
-    from typer._click.exceptions import UsageError as _VendoredUsageError
-except ImportError:  # typer < 0.27 runs on the real click
-    USAGE_ERRORS: tuple[type[Exception], ...] = (click.UsageError,)
-else:
-    USAGE_ERRORS = (click.UsageError, _VendoredUsageError)
+    from typer._click.exceptions import UsageError
+except ImportError:
+    from click.exceptions import UsageError
 
 
 def _detail_lines(response: httpx.Response) -> tuple[list[str], str | None]:
@@ -126,30 +122,30 @@ class AgentFriendlyGroup(TyperGroup):
         self,
         info_name: str | None,
         args: list[str],
-        parent: click.Context | None = None,
+        parent: typer.Context | None = None,
         **extra: Any,
-    ) -> click.Context:
+    ) -> typer.Context:
         # Root-level parsing (`softmax --bogus`) raises before invoke() runs.
         try:
             return super().make_context(info_name, args, parent, **extra)
-        except USAGE_ERRORS as exc:
+        except UsageError as exc:
             _echo_help_for_agent(exc.ctx)
             raise
 
-    def invoke(self, ctx: click.Context) -> object:
+    def invoke(self, ctx: typer.Context) -> object:
         try:
             return super().invoke(ctx)
         except httpx.HTTPStatusError as exc:
             # Plain echo, not ClickException: Typer boxes those with Rich and wraps at the
             # terminal width, which splits URLs and hints that an agent needs verbatim.
-            click.echo(f"Error: {render_http_status_error(exc)}", err=True)
+            typer.echo(f"Error: {render_http_status_error(exc)}", err=True)
             raise typer.Exit(1) from exc
-        except USAGE_ERRORS as exc:
+        except UsageError as exc:
             _echo_help_for_agent(exc.ctx or ctx)
             raise
 
 
-def _echo_help_for_agent(ctx: click.Context | None) -> None:
+def _echo_help_for_agent(ctx: typer.Context | None) -> None:
     if ctx is None or detect_coding_agent() is None:
         return
     # Typer's Rich formatter prints the help while get_help() runs instead of returning it,
@@ -157,5 +153,5 @@ def _echo_help_for_agent(ctx: click.Context | None) -> None:
     with contextlib.redirect_stdout(sys.stderr):
         rendered = ctx.get_help()
         if rendered:
-            click.echo(rendered)
-    click.echo(err=True)
+            typer.echo(rendered)
+    typer.echo(err=True)
