@@ -8,12 +8,16 @@ installs that rendering at the command boundary of a Typer app.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import sys
+from typing import Any
 
 import click
 import httpx
 from typer.core import TyperGroup
 
+from softmax.agent import detect_coding_agent
 from softmax.docs import DOCS_AUTHENTICATION_URL, DOCS_ERROR_HANDLING_URL, DOCS_RATE_LIMITS_URL
 
 REQUEST_ID_HEADER = "X-Request-Id"
@@ -60,7 +64,7 @@ def _next_step(status_code: int, response: httpx.Response) -> str:
         retry_after = response.headers.get("Retry-After")
         wait = f"at least {retry_after}s" if retry_after else "the Retry-After delay"
         return f"Next: wait {wait}, reduce concurrency, then retry."
-    if status_code == 422 or status_code == 400:
+    if status_code in (400, 422):
         return "Next: fix the request; the detail names the invalid field. Do not retry unchanged input."
     if status_code >= 500:
         return "Next: retry with backoff. If it persists, report the request id below."
@@ -95,12 +99,30 @@ def render_http_status_error(exc: httpx.HTTPStatusError) -> str:
 
 
 class AgentFriendlyGroup(TyperGroup):
-    """Typer group whose commands report Observatory HTTP failures as plain errors, not tracebacks.
+    """Typer group whose commands report failures in a form an agent can act on.
 
-    Only `httpx.HTTPStatusError` is translated, to plain text on stderr and exit 1: it is the
-    typed failure of a request that reached the server and was refused, and the response carries
-    everything the message needs. Every other exception still propagates with its traceback.
+    - `httpx.HTTPStatusError` becomes a rendered error, plain text on stderr and exit 1, instead
+      of a traceback. It is the typed failure of a request that reached the server and was
+      refused, and the response carries everything the message needs. Every other exception
+      still propagates with its traceback.
+    - A usage error (unknown flag, missing argument) under a coding agent prints the command's
+      full help before the usual one-line hint, the way the GitHub CLI does, so the agent can
+      correct the call without a second round trip.
     """
+
+    def make_context(
+        self,
+        info_name: str | None,
+        args: list[str],
+        parent: click.Context | None = None,
+        **extra: Any,
+    ) -> click.Context:
+        # Root-level parsing (`softmax --bogus`) raises before invoke() runs.
+        try:
+            return super().make_context(info_name, args, parent, **extra)
+        except click.UsageError as exc:
+            _echo_help_for_agent(exc.ctx)
+            raise
 
     def invoke(self, ctx: click.Context) -> object:
         try:
@@ -110,3 +132,18 @@ class AgentFriendlyGroup(TyperGroup):
             # terminal width, which splits URLs and hints that an agent needs verbatim.
             click.echo(f"Error: {render_http_status_error(exc)}", err=True)
             raise click.exceptions.Exit(1) from exc
+        except click.UsageError as exc:
+            _echo_help_for_agent(exc.ctx or ctx)
+            raise
+
+
+def _echo_help_for_agent(ctx: click.Context | None) -> None:
+    if ctx is None or detect_coding_agent() is None:
+        return
+    # Typer's Rich formatter prints the help while get_help() runs instead of returning it,
+    # and it prints to stdout. Usage errors belong on stderr, so redirect for the render.
+    with contextlib.redirect_stdout(sys.stderr):
+        rendered = ctx.get_help()
+        if rendered:
+            click.echo(rendered)
+    click.echo(err=True)

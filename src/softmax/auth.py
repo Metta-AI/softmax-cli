@@ -12,6 +12,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from softmax._http import observatory_client
+from softmax.agent import user_agent
 
 DEFAULT_API_SERVER = "https://softmax.com/api"
 
@@ -263,6 +264,7 @@ def exchange_auth_code(*, api_server: str, code: str) -> str:
     response = httpx.post(
         f"{api_server.rstrip('/')}/observatory/credentials/auth-codes/exchange",
         json={"code": code},
+        headers={"User-Agent": user_agent("softmax-cli")},
         timeout=10.0,
     )
     response.raise_for_status()

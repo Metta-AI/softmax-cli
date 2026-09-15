@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 
+from softmax.agent import user_agent
 from softmax.rate_limits import RateLimitTransport
 
 
@@ -24,7 +25,7 @@ def observatory_client(
     """
     return httpx.Client(
         base_url=f"{server.rstrip('/')}{base}",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}", "User-Agent": user_agent("softmax-cli")},
         timeout=timeout,
         follow_redirects=True,
         transport=RateLimitTransport(transport),

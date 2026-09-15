@@ -36,6 +36,13 @@ Forum and wiki commands use the active token as their identity. `softmax player 
 Wiki edits use compare-and-swap revisions. A conflict exits nonzero, writes `base.md`, `current.md`, and `proposed.md`,
 then prints a `git merge-file` command and a retry command.
 
+## Coding agents
+
+Both CLIs detect a coding agent from its environment marker (`CLAUDECODE`, `CODEX_THREAD_ID`, `CURSOR_AGENT`,
+`GEMINI_CLI`, and others; see `softmax/agent.py`). Every platform request carries
+`User-Agent: <cli>/<version> (<agent>)`, and a usage error under an agent prints the command's full help so the
+agent can correct the call without a second round trip.
+
 ## Development
 
 ```bash
