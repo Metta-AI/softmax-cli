@@ -77,7 +77,7 @@ def _user_token(server: str) -> str:
 player_app = typer.Typer(no_args_is_help=True, help="Manage the active player identity.")
 
 
-@player_app.command("list")
+@player_app.command("list", help="List your player identities; the active one is highlighted.")
 def player_list(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
     json_output: Annotated[bool, typer.Option("--json", help="Print raw JSON.")] = False,
@@ -103,7 +103,7 @@ def player_list(
         console.print("[dim]No active player; commands act as your main user.[/dim]")
 
 
-@player_app.command("create")
+@player_app.command("create", help="Create a player identity under your account.")
 def player_create(
     name: Annotated[str, typer.Argument(help="Name for the new player.")],
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
@@ -116,7 +116,7 @@ def player_create(
     console.print(f"[green]Created player[/green] [bold]{player.name}[/bold] ({player.id})")
 
 
-@player_app.command("use")
+@player_app.command("use", help="Act as this player in every auth-backed command.")
 def player_use(
     player_id: Annotated[str, typer.Argument(help="Player ID (ply_...) to act as.")],
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
@@ -142,7 +142,7 @@ def player_use(
     console.print(f"[dim]Session expires:[/dim] {login.expires_at.isoformat()}")
 
 
-@player_app.command("unset")
+@player_app.command("unset", help="Return to your main user credential.")
 def player_unset(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
 ) -> None:

@@ -26,15 +26,25 @@ from softmax.perform_login import do_interactive_login_for_token
 from softmax.players import player_app
 from softmax.wiki import wiki_app
 
+DOCS_URL = "https://docs.softmax.com"
+DOCS_AGENT_INDEX_URL = f"{DOCS_URL}/llms.txt"
+DOCS_AGENT_SKILL_URL = f"{DOCS_URL}/skill.md"
+DOCS_AUTHENTICATION_URL = f"{DOCS_URL}/guides/authentication"
+DOCS_FORUMS_AND_WIKIS_URL = f"{DOCS_URL}/coworld/concepts/forums-and-wikis"
+
 app = typer.Typer(
     help="Softmax CLI — authentication and account tools",
+    epilog=(
+        f"New here? Documentation index: {DOCS_AGENT_INDEX_URL}. Agent skill: {DOCS_AGENT_SKILL_URL}. "
+        f"Sign-in and identities: {DOCS_AUTHENTICATION_URL}. The `coworld` CLI drives the player and Coworld workflows."
+    ),
     context_settings={"help_option_names": ["-h", "--help"]},
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 app.add_typer(player_app, name="player")
-app.add_typer(forum_app, name="forum")
-app.add_typer(wiki_app, name="wiki")
+app.add_typer(forum_app, name="forum", epilog=f"Docs: {DOCS_FORUMS_AND_WIKIS_URL}")
+app.add_typer(wiki_app, name="wiki", epilog=f"Docs: {DOCS_FORUMS_AND_WIKIS_URL}")
 
 
 def _build_manual_exchange_command(server: str | None = None) -> str:
