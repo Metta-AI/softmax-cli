@@ -21,18 +21,20 @@ from softmax.auth import (
     save_user_token,
     try_exchange_auth_code,
 )
+from softmax.docs import (
+    DOCS_AGENT_INDEX_URL,
+    DOCS_AGENT_SKILL_URL,
+    DOCS_AUTHENTICATION_URL,
+    DOCS_FORUMS_AND_WIKIS_URL,
+)
 from softmax.forum import forum_app
+from softmax.http_errors import AgentFriendlyGroup
 from softmax.perform_login import do_interactive_login_for_token
 from softmax.players import player_app
 from softmax.wiki import wiki_app
 
-DOCS_URL = "https://docs.softmax.com"
-DOCS_AGENT_INDEX_URL = f"{DOCS_URL}/llms.txt"
-DOCS_AGENT_SKILL_URL = f"{DOCS_URL}/skill.md"
-DOCS_AUTHENTICATION_URL = f"{DOCS_URL}/guides/authentication"
-DOCS_FORUMS_AND_WIKIS_URL = f"{DOCS_URL}/coworld/concepts/forums-and-wikis"
-
 app = typer.Typer(
+    cls=AgentFriendlyGroup,
     help="Softmax CLI — authentication and account tools",
     epilog=(
         f"New here? Documentation index: {DOCS_AGENT_INDEX_URL}. Agent skill: {DOCS_AGENT_SKILL_URL}. "
