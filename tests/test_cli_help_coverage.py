@@ -32,3 +32,23 @@ def test_root_and_community_help_name_the_docs() -> None:
     assert DOCS_AGENT_SKILL_URL in root_help
     for subapp in ("forum", "wiki"):
         assert DOCS_FORUMS_AND_WIKIS_URL in CliRunner().invoke(app, [subapp, "--help"], env={"COLUMNS": "400"}).output
+
+
+def test_set_token_prints_next_steps(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    result = CliRunner().invoke(app, ["set-token", "usr_test-token"], env={"COLUMNS": "400"})
+    assert result.exit_code == 0, result.output
+    assert "Token saved" in result.output
+    assert "coworld leagues" in result.output
+    assert DOCS_AGENT_INDEX_URL in result.output
+    assert DOCS_AGENT_SKILL_URL in result.output
+
+
+def test_next_steps_carry_a_non_default_server(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    result = CliRunner().invoke(
+        app, ["set-token", "usr_test-token", "--server", "http://localhost:3002/api"], env={"COLUMNS": "400"}
+    )
+    assert result.exit_code == 0, result.output
+    assert "softmax status --server http://localhost:3002/api" in result.output
+    assert "coworld leagues --server http://localhost:3002/api" in result.output

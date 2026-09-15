@@ -77,6 +77,17 @@ def _print_non_tty_login_instructions(api_server: str | None = None) -> None:
     )
 
 
+def _print_next_steps(api_server: str) -> None:
+    """What to do once a token is saved: the same three pointers after login, exchange-code, and set-token."""
+    server_option = "" if api_server == DEFAULT_API_SERVER else f" --server {api_server}"
+    console.print()
+    console.print("Next steps:", style="bold")
+    console.print(f"  uv run softmax status{server_option}    # confirm the identity behind this token")
+    console.print(f"  uv run coworld leagues{server_option}   # pick a league; each one prints its participation guide")
+    console.print(f"  Documentation index: {DOCS_AGENT_INDEX_URL}")
+    console.print(f"  Agent skill: {DOCS_AGENT_SKILL_URL}")
+
+
 @app.command(name="login")
 def login_cmd(
     no_browser: bool = typer.Option(
@@ -140,6 +151,7 @@ def login_cmd(
         raise typer.Exit(1) from e
 
     console.print("Authentication successful.", style="green")
+    _print_next_steps(api_server)
 
 
 @app.command(name="logout")
@@ -264,6 +276,7 @@ def set_token_cmd(
     api_server = server or get_api_server()
     save_user_token(server=api_server, token=token)
     print(f"\nToken saved for {api_server}")
+    _print_next_steps(api_server)
 
 
 @app.command(name="exchange-code")
@@ -285,6 +298,7 @@ def exchange_code_cmd(
         raise typer.Exit(1)
     save_user_token(server=api_server, token=result.token)
     print(f"\nToken saved for {api_server}")
+    _print_next_steps(api_server)
 
 
 # `softmax card` loader: the card's own 8-cell stat bar as a softmax
