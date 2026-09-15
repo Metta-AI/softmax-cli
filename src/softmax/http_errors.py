@@ -15,12 +15,24 @@ from typing import Any
 
 import click
 import httpx
+import typer
 from typer.core import TyperGroup
 
 from softmax.agent import detect_coding_agent
 from softmax.docs import DOCS_AUTHENTICATION_URL, DOCS_ERROR_HANDLING_URL, DOCS_RATE_LIMITS_URL
 
 REQUEST_ID_HEADER = "X-Request-Id"
+
+# typer 0.27+ vendors its own click fork: the usage errors its parser raises are
+# `typer._click.exceptions.UsageError`, unrelated to `click.UsageError`, and its main loop
+# catches `typer.Exit` rather than click's Exit. Older typer runs on the real click. Catch
+# both usage-error families so the group behaves identically under either.
+try:
+    from typer._click.exceptions import UsageError as _VendoredUsageError
+except ImportError:  # typer < 0.27 runs on the real click
+    USAGE_ERRORS: tuple[type[Exception], ...] = (click.UsageError,)
+else:
+    USAGE_ERRORS = (click.UsageError, _VendoredUsageError)
 
 
 def _detail_lines(response: httpx.Response) -> tuple[list[str], str | None]:
@@ -120,7 +132,7 @@ class AgentFriendlyGroup(TyperGroup):
         # Root-level parsing (`softmax --bogus`) raises before invoke() runs.
         try:
             return super().make_context(info_name, args, parent, **extra)
-        except click.UsageError as exc:
+        except USAGE_ERRORS as exc:
             _echo_help_for_agent(exc.ctx)
             raise
 
@@ -131,8 +143,8 @@ class AgentFriendlyGroup(TyperGroup):
             # Plain echo, not ClickException: Typer boxes those with Rich and wraps at the
             # terminal width, which splits URLs and hints that an agent needs verbatim.
             click.echo(f"Error: {render_http_status_error(exc)}", err=True)
-            raise click.exceptions.Exit(1) from exc
-        except click.UsageError as exc:
+            raise typer.Exit(1) from exc
+        except USAGE_ERRORS as exc:
             _echo_help_for_agent(exc.ctx or ctx)
             raise
 

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from typer.core import TyperGroup
 
 from softmax.docs import DOCS_AUTHENTICATION_URL, DOCS_ERROR_HANDLING_URL, DOCS_RATE_LIMITS_URL
-from softmax.http_errors import render_http_status_error
+from softmax.http_errors import USAGE_ERRORS, render_http_status_error
 
 
 def _raised(response: httpx.Response) -> httpx.HTTPStatusError:
@@ -67,3 +68,10 @@ def test_a_client_crafted_message_is_kept_and_still_gets_next_step_and_docs() ->
     assert "Request failed:" not in message
     assert "Next:" in message
     assert f"Docs: {DOCS_AUTHENTICATION_URL}" in message
+
+
+def test_group_catches_the_usage_error_class_typer_actually_raises() -> None:
+    """typer >= 0.27 raises its vendored click's UsageError; older typer raises click's. Both must match."""
+    parser_package = TyperGroup.__mro__[1].__module__.rsplit(".", 1)[0]
+    raised_by_typer = __import__(f"{parser_package}.exceptions", fromlist=["UsageError"]).UsageError
+    assert issubclass(raised_by_typer, USAGE_ERRORS)
