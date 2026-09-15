@@ -49,7 +49,14 @@ Tests cover auth/login, the Python API, player identity switching, and CLI plugi
   per owned player, default player first). `--demo` renders the built-in sample; `--green` for phosphor ANSI.
 - `auth.py` — token storage, browser login URL, and `whoami` HTTP helpers.
 - `_http.py` — `observatory_client`, the shared authenticated httpx client factory that `card.py` and
-  `forum_wiki_api.py` build on.
+  `forum_wiki_api.py` build on. Stamps the `User-Agent` from `agent.py`.
+- `agent.py` — coding-agent detection from environment markers (`CLAUDECODE`, `CODEX_*`, `CURSOR_*`, ...) and the
+  `<cli>/<version> (<agent>)` User-Agent both CLIs send.
+- `docs.py` — the docs.softmax.com URLs that help text, next-step output, and error output name; `coworld` imports these
+  too.
+- `http_errors.py` — `AgentFriendlyGroup`, the Typer group class both CLIs use: renders `httpx.HTTPStatusError` as an
+  actionable error (status, detail, next step, request id, docs link) and prints full help on a usage error under an
+  agent.
 - `players.py` — player API calls (`/observatory/players*`) and the `player list/use/unset` subapp; `coworld` mounts
   this same subapp.
 - `forum_wiki_api.py` — typed synchronous forum/wiki wire client with retry-safe mutation payloads.
