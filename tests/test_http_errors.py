@@ -31,12 +31,14 @@ def test_401_points_at_login_and_the_authentication_docs() -> None:
 
 def test_429_relays_the_servers_documentation_url_and_retry_after() -> None:
     body = {
+        "type": "api_rate_limit_exceeded",
+        "documentation_url": DOCS_RATE_LIMITS_URL,
         "detail": {
             "type": "api_rate_limit_exceeded",
             "message": "API rate limit exceeded.",
             "retry_after_seconds": 7,
             "documentation_url": DOCS_RATE_LIMITS_URL,
-        }
+        },
     }
     message = render_http_status_error(_error(429, body, {"Retry-After": "7"}))
     assert "Type: api_rate_limit_exceeded" in message
@@ -73,3 +75,20 @@ def test_a_client_crafted_message_is_kept_and_still_gets_next_step_and_docs() ->
 def test_group_catches_the_usage_errors_typer_raises() -> None:
     """typer >= 0.26 raises its vendored click's UsageError; older typer raises click's. Catch the right one."""
     assert issubclass(typer.BadParameter, UsageError)
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "Rejected",
+        [{"loc": ["body", "name"]}],
+        {"message": "Rejected"},
+    ],
+)
+def test_envelope_metadata_is_rendered(detail: object) -> None:
+    message = render_http_status_error(
+        _error(409, {"detail": detail, "type": "wiki_edit_conflict", "documentation_url": "https://docs.example/wiki"})
+    )
+    assert "Type: wiki_edit_conflict" in message
+    assert "Docs: https://docs.example/wiki" in message
+    assert "Detail:" in message

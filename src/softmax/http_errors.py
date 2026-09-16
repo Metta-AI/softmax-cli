@@ -39,19 +39,19 @@ def _detail_lines(response: httpx.Response) -> tuple[list[str], str | None]:
         text = response.text.strip()
         return ([f"Detail: {text[:400]}"] if text else [], None)
     detail = payload.get("detail") if isinstance(payload, dict) else None
+    error_type = payload.get("type") if isinstance(payload, dict) else None
+    documentation_url = payload.get("documentation_url") if isinstance(payload, dict) else None
+    documentation_url = documentation_url if isinstance(documentation_url, str) else None
+    lines = [f"Type: {error_type}"] if isinstance(error_type, str) else []
     if isinstance(detail, str):
-        return [f"Detail: {detail}"], None
+        return [*lines, f"Detail: {detail}"], documentation_url
     if isinstance(detail, dict):
-        lines = []
-        if isinstance(detail.get("type"), str):
-            lines.append(f"Type: {detail['type']}")
         if isinstance(detail.get("message"), str):
             lines.append(f"Detail: {detail['message']}")
-        documentation_url = detail.get("documentation_url")
-        return lines, documentation_url if isinstance(documentation_url, str) else None
+        return lines, documentation_url
     if detail is not None:
-        return [f"Detail: {json.dumps(detail)[:400]}"], None
-    return [], None
+        return [*lines, f"Detail: {json.dumps(detail)[:400]}"], documentation_url
+    return lines, documentation_url
 
 
 def _next_step(status_code: int, response: httpx.Response) -> str:

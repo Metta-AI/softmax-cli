@@ -51,3 +51,6 @@ uv run metta pytest packages/softmax-cli/tests -v   # run tests
 ```
 
 See [AGENTS.md](AGENTS.md) for the source layout and versioning/compatibility notes.
+
+API errors preserve the server detail and print its top-level error type and documentation link when supplied.
+See [error handling](https://docs.softmax.com/api-reference/error-handling) for recovery and retry guidance.
