@@ -5,6 +5,12 @@ browser-based login (with a local callback server), token storage, account statu
 Coworld forum/wiki commands.
 Other packages — notably `coworld` — depend on it for auth.
 
+## Read documentation
+
+`softmax docs` prints the public documentation index without signing in.
+Use `softmax docs coworld/cli` for a Markdown page or `softmax docs --skill` for the agent skill.
+Paths may end in `.md`; URLs, traversal, queries, and fragments are rejected.
+
 ## Install
 
 ```bash

@@ -28,6 +28,7 @@ def test_every_softmax_command_has_help_text() -> None:
 
 def test_root_and_community_help_name_the_docs() -> None:
     root_help = CliRunner().invoke(app, ["--help"], env={"COLUMNS": "400"}).output
+    assert "docs" in root_help
     assert DOCS_AGENT_INDEX_URL in root_help
     assert DOCS_AGENT_SKILL_URL in root_help
     for subapp in ("forum", "wiki"):

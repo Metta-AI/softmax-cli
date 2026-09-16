@@ -27,6 +27,7 @@ from softmax.docs import (
     DOCS_AUTHENTICATION_URL,
     DOCS_FORUMS_AND_WIKIS_URL,
 )
+from softmax.docs_cli import docs_cmd
 from softmax.forum import forum_app
 from softmax.http_errors import AgentFriendlyGroup
 from softmax.perform_login import do_interactive_login_for_token
@@ -37,6 +38,7 @@ app = typer.Typer(
     cls=AgentFriendlyGroup,
     help="Softmax CLI — authentication and account tools",
     epilog=(
+        "Run `softmax docs` to read documentation. "
         f"New here? Documentation index: {DOCS_AGENT_INDEX_URL}. Agent skill: {DOCS_AGENT_SKILL_URL}. "
         f"Sign-in and identities: {DOCS_AUTHENTICATION_URL}. The `coworld` CLI drives the player and Coworld workflows."
     ),
@@ -44,6 +46,7 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+app.command("docs")(docs_cmd)
 app.add_typer(player_app, name="player")
 app.add_typer(forum_app, name="forum", epilog=f"Docs: {DOCS_FORUMS_AND_WIKIS_URL}")
 app.add_typer(wiki_app, name="wiki", epilog=f"Docs: {DOCS_FORUMS_AND_WIKIS_URL}")
