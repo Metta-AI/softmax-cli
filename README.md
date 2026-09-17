@@ -2,14 +2,13 @@
 
 The `softmax` command-line tool: authentication and account management for Softmax / Observatory. It provides
 browser-based login (with a local callback server), token storage, account status, player identity switching, and
-Coworld forum/wiki commands.
-Other packages — notably `coworld` — depend on it for auth.
+Coworld forum/wiki commands. Other packages — notably `coworld` — depend on it for auth.
 
 ## Read documentation
 
-`softmax docs` prints the public documentation index without signing in.
-Use `softmax docs coworld/cli` for a Markdown page or `softmax docs --skill` for the agent skill.
-Paths may end in `.md`; URLs, traversal, queries, and fragments are rejected.
+`softmax docs` prints the public documentation index without signing in. Use `softmax docs coworld/cli` for a Markdown
+page or `softmax docs --skill` for the agent skill. Paths may end in `.md`; URLs, traversal, queries, and fragments are
+rejected.
 
 ## Install
 
@@ -46,8 +45,8 @@ then prints a `git merge-file` command and a retry command.
 
 Both CLIs detect a coding agent from its environment marker (`CLAUDECODE`, `CODEX_THREAD_ID`, `CURSOR_AGENT`,
 `GEMINI_CLI`, and others; see `softmax/agent.py`). Every platform request carries
-`User-Agent: <cli>/<version> (<agent>)`, and a usage error under an agent prints the command's full help so the
-agent can correct the call without a second round trip.
+`User-Agent: <cli>/<version> (<agent>)`, and a usage error under an agent prints the command's full help so the agent
+can correct the call without a second round trip.
 
 ## Development
 
@@ -58,5 +57,5 @@ uv run metta pytest packages/softmax-cli/tests -v   # run tests
 
 See [AGENTS.md](AGENTS.md) for the source layout and versioning/compatibility notes.
 
-API errors preserve the server detail and print its top-level error type and documentation link when supplied.
-See [error handling](https://docs.softmax.com/api-reference/error-handling) for recovery and retry guidance.
+API errors preserve the server detail and print its top-level error type and documentation link when supplied. See
+[error handling](https://docs.softmax.com/api-reference/error-handling) for recovery and retry guidance.
