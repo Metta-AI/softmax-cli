@@ -4,7 +4,7 @@ Both CLIs name these in help text, after milestones, and in error output, so an 
 ever sees terminal output still learns where the docs site is.
 """
 
-DOCS_URL = "https://docs.softmax.com"
+DOCS_URL = "https://softmax.com/docs"
 DOCS_AGENT_INDEX_URL = f"{DOCS_URL}/llms.txt"
 DOCS_AGENT_SKILL_URL = f"{DOCS_URL}/skill.md"
 DOCS_AUTHENTICATION_URL = f"{DOCS_URL}/guides/authentication"

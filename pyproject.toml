@@ -27,7 +27,7 @@ dynamic = ["version"]
 test = ["pytest>=8.0", "pytest-httpserver"]
 
 [project.urls]
-Documentation = "https://docs.softmax.com"
+Documentation = "https://softmax.com/docs"
 
 [project.scripts]
 softmax = "softmax.cli:app"

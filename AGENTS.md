@@ -52,7 +52,7 @@ Tests cover auth/login, the Python API, player identity switching, and CLI plugi
   `forum_wiki_api.py` build on. Stamps the `User-Agent` from `agent.py`.
 - `agent.py` — coding-agent detection from environment markers (`CLAUDECODE`, `CODEX_*`, `CURSOR_*`, ...) and the
   `<cli>/<version> (<agent>)` User-Agent both CLIs send.
-- `docs.py` — the docs.softmax.com URLs that help text, next-step output, and error output name; `coworld` imports these
+- `docs.py` — the softmax.com/docs URLs that help text, next-step output, and error output name; `coworld` imports these
   too.
 - `http_errors.py` — `AgentFriendlyGroup`, the Typer group class both CLIs use: renders `httpx.HTTPStatusError` as an
   actionable error (status, detail, next step, request id, docs link) and prints full help on a usage error under an

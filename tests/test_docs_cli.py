@@ -8,10 +8,10 @@ from softmax.cli import app
 @pytest.mark.parametrize(
     ("args", "url"),
     [
-        ([], "https://docs.softmax.com/llms.txt"),
-        (["--skill"], "https://docs.softmax.com/skill.md"),
-        (["guides/authentication"], "https://docs.softmax.com/guides/authentication.md"),
-        (["guides/authentication.md"], "https://docs.softmax.com/guides/authentication.md"),
+        ([], "https://softmax.com/docs/llms.txt"),
+        (["--skill"], "https://softmax.com/docs/skill.md"),
+        (["guides/authentication"], "https://softmax.com/docs/guides/authentication.md"),
+        (["guides/authentication.md"], "https://softmax.com/docs/guides/authentication.md"),
     ],
 )
 def test_docs_fetches_raw_text_without_auth(monkeypatch, args, url):
@@ -60,7 +60,7 @@ def test_docs_rejects_redirected_html(monkeypatch, content_type):
             200,
             headers={"Content-Type": content_type},
             text="<html>login</html>",
-            request=httpx.Request("GET", "https://docs.softmax.com/login"),
+            request=httpx.Request("GET", "https://softmax.com/docs/login"),
         ),
     )
     result = CliRunner(mix_stderr=False).invoke(app, ["docs"])
@@ -75,7 +75,7 @@ def test_docs_http_failure_uses_existing_error_renderer(monkeypatch):
     monkeypatch.setattr(
         "softmax.docs_cli.httpx.get",
         lambda *a, **k: httpx.Response(
-            404, json={"detail": "Missing page"}, request=httpx.Request("GET", "https://docs.softmax.com/missing.md")
+            404, json={"detail": "Missing page"}, request=httpx.Request("GET", "https://softmax.com/docs/missing.md")
         ),
     )
     result = CliRunner().invoke(app, ["docs", "missing"])
