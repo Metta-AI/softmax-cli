@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self, TypeVar
 from urllib.parse import quote
 
 import httpx
@@ -18,6 +18,9 @@ REQUEST_ATTEMPTS = 3
 
 class WireModel(BaseModel):
     model_config = ConfigDict(extra="allow")
+
+
+ResponseT = TypeVar("ResponseT", bound=WireModel)
 
 
 class UserAuthor(WireModel):
@@ -211,6 +214,11 @@ class ForumWikiApi:
             response.close()
         return self._client.request(method, path, params=params, json=payload)
 
+    def _validated_request(self, response_type: type[ResponseT], method: str, path: str, **kwargs: Any) -> ResponseT:
+        response = self._request(method, path, **kwargs)
+        response.raise_for_status()
+        return response_type.model_validate(response.json())
+
     def list_forum(
         self,
         forum_slug: str,
@@ -222,9 +230,7 @@ class ForumWikiApi:
         params: dict[str, str | int] = {"sort": sort, "limit": limit}
         if cursor is not None:
             params["cursor"] = cursor
-        response = self._request("GET", f"forums/{quote(forum_slug, safe='')}/posts", params=params)
-        response.raise_for_status()
-        return PostFeedPage.model_validate(response.json())
+        return self._validated_request(PostFeedPage, "GET", f"forums/{quote(forum_slug, safe='')}/posts", params=params)
 
     def read_post(self, post_id: str) -> str:
         response = self._request("GET", f"posts/{quote(post_id, safe='')}.md")
@@ -232,13 +238,12 @@ class ForumWikiApi:
         return response.text
 
     def create_post(self, *, title: str, body: str, idempotency_key: str) -> PostPublic:
-        response = self._request(
+        return self._validated_request(
+            PostPublic,
             "POST",
             "posts",
             body=CreatePostRequest(title=title, body=body, idempotency_key=idempotency_key),
         )
-        response.raise_for_status()
-        return PostPublic.model_validate(response.json())
 
     def create_comment(
         self,
@@ -248,13 +253,12 @@ class ForumWikiApi:
         idempotency_key: str,
         parent_id: str | None = None,
     ) -> PostCommentPublic:
-        response = self._request(
+        return self._validated_request(
+            PostCommentPublic,
             "POST",
             f"posts/{quote(post_id, safe='')}/comments",
             body=CreateCommentRequest(body=body, idempotency_key=idempotency_key, parent_id=parent_id),
         )
-        response.raise_for_status()
-        return PostCommentPublic.model_validate(response.json())
 
     def vote(
         self,
@@ -266,9 +270,7 @@ class ForumWikiApi:
         path = f"posts/{quote(post_id, safe='')}"
         if comment_id is not None:
             path += f"/comments/{quote(comment_id, safe='')}"
-        response = self._request("PUT", f"{path}/vote", body=VoteRequest(value=value))
-        response.raise_for_status()
-        return VotePublic.model_validate(response.json())
+        return self._validated_request(VotePublic, "PUT", f"{path}/vote", body=VoteRequest(value=value))
 
     def search_forum(
         self,
@@ -288,17 +290,14 @@ class ForumWikiApi:
             params["author_player_id"] = author_player_id
         if cursor is not None:
             params["cursor"] = cursor
-        response = self._request("GET", path, params=params)
-        response.raise_for_status()
-        return ForumSearchPage.model_validate(response.json())
+        return self._validated_request(ForumSearchPage, "GET", path, params=params)
 
     def read_wiki_page(self, wiki_slug: str, page_slug: str) -> WikiPagePublic:
-        response = self._request(
+        return self._validated_request(
+            WikiPagePublic,
             "GET",
             f"wikis/{quote(wiki_slug, safe='')}/pages/{quote(page_slug, safe='/')}",
         )
-        response.raise_for_status()
-        return WikiPagePublic.model_validate(response.json())
 
     def edit_wiki_page(
         self,
@@ -328,9 +327,7 @@ class ForumWikiApi:
         return WikiEditPublic.model_validate(response.json())
 
     def wiki_history(self, page_id: str) -> WikiRevisionListPublic:
-        response = self._request("GET", f"wiki-pages/{quote(page_id, safe='')}/revisions")
-        response.raise_for_status()
-        return WikiRevisionListPublic.model_validate(response.json())
+        return self._validated_request(WikiRevisionListPublic, "GET", f"wiki-pages/{quote(page_id, safe='')}/revisions")
 
     def search_wiki(
         self,
@@ -349,6 +346,6 @@ class ForumWikiApi:
             params["author_player_id"] = author_player_id
         if cursor is not None:
             params["cursor"] = cursor
-        response = self._request("GET", f"wikis/{quote(wiki_slug, safe='')}/search", params=params)
-        response.raise_for_status()
-        return WikiSearchPage.model_validate(response.json())
+        return self._validated_request(
+            WikiSearchPage, "GET", f"wikis/{quote(wiki_slug, safe='')}/search", params=params
+        )

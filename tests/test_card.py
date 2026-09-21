@@ -179,14 +179,6 @@ def test_a_division_ranked_by_something_other_than_rating_reads_n_a():
     assert cards[0].games[0].mmr == "n/a"  # the rank is still real, the rating is not
 
 
-def test_the_mmr_column_holds_a_rating_or_nothing():
-    assert card._mmr(1234.6, "MMR") == "1235"
-    assert card._mmr(1042.0, "Elo") == "1042"  # boards snapshotted before the wire rename
-    assert card._mmr(3497970.0, "MMR") == "3498k"  # abbreviated rather than widening the column
-    assert card._mmr(0.62, "Win %") == "n/a"
-    assert card._mmr(0.0, "Score") == "n/a"  # a coworld's own score is not a rating
-
-
 def test_wordmark_keeps_digits_and_signs_but_drops_the_rest():
     assert card.wordmark("Ralph 2.0") == "RALPH 2.0"
     assert card.wordmark("eck-star.b") == "ECK-STAR.B"
@@ -208,7 +200,7 @@ def test_hero_drops_to_condensed_when_the_regular_face_overflows():
     name = "VON HOUCK"
     assert len(card._rasterize(name, card.FONT_NAME)[0]) > card.INNER
     assert len(card._rasterize(name, card.FONT_NAME_CONDENSED, gap=1)[0]) <= card.INNER
-    hero = card._hero_lines(card.DEMO_CARD.model_copy(update={"name": name}))
+    hero = card.build_lines(card.DEMO_CARD.model_copy(update={"name": name}))[4:8]
     ink = max(i for line in hero for i, ch in enumerate(line) if ch in "█▀▄")
     # The clipped regular face would ink out to the frame edge; condensed ends early.
     assert ink < 60
@@ -257,7 +249,7 @@ def test_num_right_aligns_and_abbreviates_to_width():
 
 
 def test_huge_stats_abbreviate_instead_of_breaking_the_frame():
-    huge = card._mmr(3497970.0, "MMR")
+    huge = card._num(3497970, card.MMR_W).strip()
     rows = [card.GameRow(name="Muster", policy="ilya_muromets:v1", rank=7, total=10, mmr=huge, rounds=1234567)]
     out = card.render(card.DEMO_CARD.model_copy(update={"games": rows}))
     assert "3498k" in out

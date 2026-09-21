@@ -31,67 +31,60 @@ except ImportError:
     from click.exceptions import UsageError
 
 
-def _detail_lines(response: httpx.Response) -> tuple[list[str], str | None]:
-    """The server's error detail as printable lines, plus its documentation_url when it sent one."""
-    try:
-        payload = response.json()
-    except (json.JSONDecodeError, ValueError):
-        text = response.text.strip()
-        return ([f"Detail: {text[:400]}"] if text else [], None)
-    detail = payload.get("detail") if isinstance(payload, dict) else None
-    error_type = payload.get("type") if isinstance(payload, dict) else None
-    documentation_url = payload.get("documentation_url") if isinstance(payload, dict) else None
-    documentation_url = documentation_url if isinstance(documentation_url, str) else None
-    lines = [f"Type: {error_type}"] if isinstance(error_type, str) else []
-    if isinstance(detail, str):
-        return [*lines, f"Detail: {detail}"], documentation_url
-    if isinstance(detail, dict):
-        if isinstance(detail.get("message"), str):
-            lines.append(f"Detail: {detail['message']}")
-        return lines, documentation_url
-    if detail is not None:
-        return [*lines, f"Detail: {json.dumps(detail)[:400]}"], documentation_url
-    return lines, documentation_url
-
-
-def _next_step(status_code: int, response: httpx.Response) -> str:
-    if status_code == 401:
-        return "Next: run `uv run softmax status`; if the token is missing or expired, run `uv run softmax login`."
-    if status_code == 403:
-        return (
-            "Next: this identity is not allowed here. Check `uv run softmax status` and the active player "
-            "(`uv run softmax player list`)."
-        )
-    if status_code == 404:
-        return (
-            "Next: check the id and the server URL. `uv run coworld list` and `uv run coworld leagues` show valid ids."
-        )
-    if status_code == 409:
-        return "Next: re-read the current state the response describes, then retry with that as the base."
-    if status_code == 429:
-        retry_after = response.headers.get("Retry-After")
-        wait = f"at least {retry_after}s" if retry_after else "the Retry-After delay"
-        return f"Next: wait {wait}, reduce concurrency, then retry."
-    if status_code in (400, 422):
-        return "Next: fix the request; the detail names the invalid field. Do not retry unchanged input."
-    if status_code >= 500:
-        return "Next: retry with backoff. If it persists, report the request id below."
-    return "Next: read the detail above."
-
-
 def render_http_status_error(exc: httpx.HTTPStatusError) -> str:
     """One terminal-ready message: what failed, what the server said, what to do, where to read."""
     response = exc.response
     request = exc.request
     status = response.status_code
-    detail_lines, documentation_url = _detail_lines(response)
+    try:
+        payload = response.json()
+    except (json.JSONDecodeError, ValueError):
+        text = response.text.strip()
+        detail_lines = [f"Detail: {text[:400]}"] if text else []
+        documentation_url = None
+    else:
+        detail = payload.get("detail") if isinstance(payload, dict) else None
+        error_type = payload.get("type") if isinstance(payload, dict) else None
+        documentation_url = payload.get("documentation_url") if isinstance(payload, dict) else None
+        documentation_url = documentation_url if isinstance(documentation_url, str) else None
+        detail_lines = [f"Type: {error_type}"] if isinstance(error_type, str) else []
+        if isinstance(detail, str):
+            detail_lines.append(f"Detail: {detail}")
+        elif isinstance(detail, dict) and isinstance(detail.get("message"), str):
+            detail_lines.append(f"Detail: {detail['message']}")
+        elif detail is not None:
+            detail_lines.append(f"Detail: {json.dumps(detail)[:400]}")
+
+    if status == 401:
+        next_step = "Next: run `uv run softmax status`; if the token is missing or expired, run `uv run softmax login`."
+    elif status == 403:
+        next_step = (
+            "Next: this identity is not allowed here. Check `uv run softmax status` and the active player "
+            "(`uv run softmax player list`)."
+        )
+    elif status == 404:
+        next_step = (
+            "Next: check the id and the server URL. `uv run coworld list` and `uv run coworld leagues` show valid ids."
+        )
+    elif status == 409:
+        next_step = "Next: re-read the current state the response describes, then retry with that as the base."
+    elif status == 429:
+        retry_after = response.headers.get("Retry-After")
+        wait = f"at least {retry_after}s" if retry_after else "the Retry-After delay"
+        next_step = f"Next: wait {wait}, reduce concurrency, then retry."
+    elif status in (400, 422):
+        next_step = "Next: fix the request; the detail names the invalid field. Do not retry unchanged input."
+    elif status >= 500:
+        next_step = "Next: retry with backoff. If it persists, report the request id below."
+    else:
+        next_step = "Next: read the detail above."
     if str(exc).startswith(("Client error '", "Server error '")):
         # httpx's own message: say what failed ourselves, then the server's detail.
         lines = [f"Request failed: {request.method} {request.url.path} returned HTTP {status}.", *detail_lines]
     else:
         # A client crafted the message (status, path, hint); it already says what failed.
         lines = [str(exc)]
-    lines.append(_next_step(status, response))
+    lines.append(next_step)
     request_id = response.headers.get(REQUEST_ID_HEADER)
     if request_id:
         lines.append(f"Request id: {request_id}")

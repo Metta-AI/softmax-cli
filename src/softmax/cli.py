@@ -52,36 +52,6 @@ app.add_typer(forum_app, name="forum", epilog=f"Docs: {DOCS_FORUMS_AND_WIKIS_URL
 app.add_typer(wiki_app, name="wiki", epilog=f"Docs: {DOCS_FORUMS_AND_WIKIS_URL}")
 
 
-def _build_manual_exchange_command(server: str | None = None) -> str:
-    if server:
-        return f"softmax exchange-code --server '{server}' '<CODE>'"
-    return "softmax exchange-code '<CODE>'"
-
-
-def _print_non_tty_login_instructions(api_server: str | None = None) -> None:
-    resolved = api_server or get_api_server()
-    is_custom = resolved != DEFAULT_API_SERVER
-    auth_url = build_browser_login_url(resolved)
-    console.print("Interactive login requires a TTY.", style="red")
-    console.print()
-    console.print("Open this URL in any browser to sign in:", style="yellow")
-    console.print()
-    console.print("    ", auth_url)
-    console.print()
-    console.print("Copy the auth code from the browser, then run:", style="yellow")
-    console.print()
-    console.print("    ", _build_manual_exchange_command(resolved if is_custom else None))
-    console.print()
-    console.print(
-        Panel(
-            "If you are a coding agent, ask your human to open the URL above and give you "
-            "the auth code. Then run the exchange-code command above.",
-            title="🤖 Agent Hint",
-            border_style="cyan",
-        )
-    )
-
-
 def _print_next_steps(api_server: str) -> None:
     """What to do once a token is saved: the same three pointers after login, exchange-code, and set-token."""
     server_option = "" if api_server == DEFAULT_API_SERVER else f" --server {api_server}"
@@ -139,7 +109,29 @@ def login_cmd(
         return
 
     if not sys.stdin.isatty():
-        _print_non_tty_login_instructions(api_server)
+        console.print("Interactive login requires a TTY.", style="red")
+        console.print()
+        console.print("Open this URL in any browser to sign in:", style="yellow")
+        console.print()
+        console.print("    ", build_browser_login_url(api_server))
+        console.print()
+        console.print("Copy the auth code from the browser, then run:", style="yellow")
+        console.print()
+        command = (
+            f"softmax exchange-code --server '{api_server}' '<CODE>'"
+            if api_server != DEFAULT_API_SERVER
+            else "softmax exchange-code '<CODE>'"
+        )
+        console.print("    ", command)
+        console.print()
+        console.print(
+            Panel(
+                "If you are a coding agent, ask your human to open the URL above and give you "
+                "the auth code. Then run the exchange-code command above.",
+                title="🤖 Agent Hint",
+                border_style="cyan",
+            )
+        )
         raise typer.Exit(1)
 
     try:

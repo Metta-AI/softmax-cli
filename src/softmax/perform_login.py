@@ -193,24 +193,6 @@ def _render_html(
 </html>"""
 
 
-def _success_html() -> str:
-    return _render_html(
-        title="Authentication Successful",
-        headline="You're all set!",
-        message_lines=[
-            "Authentication complete. You can return to the terminal.",
-            "This window will close automatically in a moment.",
-        ],
-        status="success",
-        auto_close_seconds=3,
-        extra_html="""
-            <div class="smx-auth__actions">
-                <button class="smx-auth-button" type="button" onclick="window.close()">Close this window</button>
-            </div>
-            """,
-    )
-
-
 def _error_html(*, error_message: str) -> str:
     return _render_html(
         title="Authentication Error",
@@ -268,25 +250,27 @@ def _create_app(session: _CLIAuthSession, *, api_server: str) -> FastAPI:
             return HTMLResponse(content=_error_html(error_message=result.message), status_code=500)
 
         _finish_authentication(session, token=result.token)
-        return HTMLResponse(content=_success_html())
-
-    return app
-
-
-def _print_login_instructions(*, auth_url: str, agent_hint: str | None) -> None:
-    if agent_hint:
-        console.print(
-            Panel(
-                agent_hint,
-                title="🤖 Agent Hint",
-                border_style="cyan",
+        return HTMLResponse(
+            content=_render_html(
+                title="Authentication Successful",
+                headline="You're all set!",
+                message_lines=[
+                    "Authentication complete. You can return to the terminal.",
+                    "This window will close automatically in a moment.",
+                ],
+                status="success",
+                auto_close_seconds=3,
+                extra_html="""
+                    <div class="smx-auth__actions">
+                        <button class="smx-auth-button" type="button" onclick="window.close()">
+                            Close this window
+                        </button>
+                    </div>
+                    """,
             )
         )
-        console.print()
-    console.print("Open this URL in any browser to sign in:")
-    console.print()
-    console.print(auth_url)
-    console.print()
+
+    return app
 
 
 def _start_manual_code_prompt(*, session: _CLIAuthSession, api_server: str) -> None:
@@ -362,7 +346,13 @@ def do_interactive_login_for_token(
     session.error = None
 
     auth_url = build_browser_login_url(api_server, callback_url=callback_url)
-    _print_login_instructions(auth_url=auth_url, agent_hint=agent_hint)
+    if agent_hint:
+        console.print(Panel(agent_hint, title="🤖 Agent Hint", border_style="cyan"))
+        console.print()
+    console.print("Open this URL in any browser to sign in:")
+    console.print()
+    console.print(auth_url)
+    console.print()
     if open_browser:
         _open_browser(url=auth_url)
 

@@ -298,7 +298,7 @@ def fetch_player_cards(
                     policy=seat.policy_label,
                     rank=row.rank,
                     total=len(board),
-                    mmr=_mmr(row.score, row.score_label),
+                    mmr=_num(round(row.score), MMR_W).strip() if row.score_label in MMR_LABELS else "n/a",
                     rounds=row.rounds_played,
                 )
             )
@@ -359,36 +359,6 @@ def _strip_line() -> str:
     return _framed("▐" + "█" * (INNER - 2) + "▌")
 
 
-def _hero_lines(card: PlayerCard) -> list[str]:
-    """Big pixel name composed with half-blocks. Names wider than the content
-    area drop to the condensed face; names wider than even that clip at the
-    right edge."""
-    mark = wordmark(card.name)
-    name_px = _rasterize(mark, FONT_NAME)
-    if len(name_px[0]) > INNER:
-        name_px = _rasterize(mark, FONT_NAME_CONDENSED, gap=1)
-
-    grid = [[0] * INNER for _ in range(8)]
-    for r in range(8):
-        for c, bit in enumerate(name_px[r][:INNER]):
-            if bit == "1":
-                grid[r][c] = 1
-
-    lines = []
-    for tr in range(4):
-        row = ""
-        for col in range(INNER):
-            top, bot = grid[2 * tr][col], grid[2 * tr + 1][col]
-            row += "█" if top and bot else "▀" if top else "▄" if bot else " "
-        lines.append(_framed(row))
-    return lines
-
-
-def _pctile(rank: int, total: int) -> int:
-    """Share of the board this rank sits above; the standings bar's fill."""
-    return round((total - rank) / (total - 1) * 100) if total > 1 else 100
-
-
 def _fit(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
@@ -411,16 +381,6 @@ def _num(n: int, width: int) -> str:
 MMR_LABELS = ("MMR", "Elo")
 
 
-def _mmr(score: float, score_label: str) -> str:
-    """The row's matchmaking rating, or `n/a` on a board ranked by something
-    else. Each coworld picks what its division ranks by (win rate, tiles held,
-    its own score) and only the ladder rating is an MMR, so every other
-    headline column reads as no rating rather than as a wrong one."""
-    if score_label not in MMR_LABELS:
-        return "n/a"
-    return _num(round(score), MMR_W).strip()
-
-
 def _rank_field(rank: int, total: int) -> str:
     """`1/09`: rank as written, board size zero-padded to at least two digits so
     the two halves stay distinct at a glance."""
@@ -435,56 +395,65 @@ def _bar_w(games: list[GameRow]) -> int:
     return min(BAR_W, STANDING_W - widest - len(RANK_GAP))
 
 
-def _header(games: list[GameRow]) -> str:
-    """Column labels. `game` runs with its names; the rest are centered over
-    their fields, and `rank` straddles the seam between the rank numbers and
-    their bar, because the label names both."""
-    seam = STANDING_W - _bar_w(games)
-    return (
-        f"{'game':<{GAME_W}}{'policy':^{POLICY_W}}{'rounds':^{ROUNDS_W}}{GAP}"
-        f"{'mmr':^{MMR_W}}{GAP}{'rank':>{seam + len('rank') // 2}}"
-    )
+def build_lines(card: PlayerCard) -> list[str]:
+    mark = wordmark(card.name)
+    name_px = _rasterize(mark, FONT_NAME)
+    if len(name_px[0]) > INNER:
+        name_px = _rasterize(mark, FONT_NAME_CONDENSED, gap=1)
+    grid = [[0] * INNER for _ in range(8)]
+    for row in range(8):
+        for column, bit in enumerate(name_px[row][:INNER]):
+            if bit == "1":
+                grid[row][column] = 1
+    hero_lines = []
+    for text_row in range(4):
+        text = ""
+        for column in range(INNER):
+            top, bottom = grid[2 * text_row][column], grid[2 * text_row + 1][column]
+            text += "█" if top and bottom else "▀" if top else "▄" if bottom else " "
+        hero_lines.append(_framed(text))
 
-
-def _game_rows(card: PlayerCard) -> list[str]:
-    if not card.games:
-        return [_framed("no league standings yet")]
-    bar_w = _bar_w(card.games)
-    rank_w = STANDING_W - bar_w - len(RANK_GAP)
-    rows = []
-    for g in card.games:
-        fill = round(_pctile(g.rank, g.total) / 100 * bar_w)
-        rows.append(
+    bar_width = _bar_w(card.games)
+    rank_width = STANDING_W - bar_width - len(RANK_GAP)
+    game_rows = []
+    for game in card.games:
+        percentile = round((game.total - game.rank) / (game.total - 1) * 100) if game.total > 1 else 100
+        fill = round(percentile / 100 * bar_width)
+        game_rows.append(
             _framed(
-                f"{_fit(g.name, GAME_W - 1):<{GAME_W}}"
-                f"{_fit(g.policy, POLICY_W - 1):<{POLICY_W}}"
-                f"{_num(g.rounds, ROUNDS_W)}{GAP}"
-                f"{g.mmr:>{MMR_W}}{GAP}"
-                f"{_rank_field(g.rank, g.total):>{rank_w}}{RANK_GAP}"
-                f"{'█' * fill}{'┈' * (bar_w - fill)}"
+                f"{_fit(game.name, GAME_W - 1):<{GAME_W}}"
+                f"{_fit(game.policy, POLICY_W - 1):<{POLICY_W}}"
+                f"{_num(game.rounds, ROUNDS_W)}{GAP}"
+                f"{game.mmr:>{MMR_W}}{GAP}"
+                f"{_rank_field(game.rank, game.total):>{rank_width}}{RANK_GAP}"
+                f"{'█' * fill}{'┈' * (bar_width - fill)}"
             )
         )
-    return rows
+    if not game_rows:
+        game_rows.append(_framed("no league standings yet"))
 
-
-def build_lines(card: PlayerCard) -> list[str]:
     total_rounds = sum(g.rounds for g in card.games)
     footer = f"Joined {card.joined} ∙ {card.leagues} leagues ∙ {total_rounds} rounds"
+    header_seam = STANDING_W - bar_width
+    header = (
+        f"{'game':<{GAME_W}}{'policy':^{POLICY_W}}{'rounds':^{ROUNDS_W}}{GAP}"
+        f"{'mmr':^{MMR_W}}{GAP}{'rank':>{header_seam + len('rank') // 2}}"
+    )
     return [
         _rule("┌", "┐", card.title),
         _blank(),
         _strip_line(),
         _blank(),
-        *_hero_lines(card),
+        *hero_lines,
         _blank(),
         _framed("Player: " + _fit(card.name, INNER - len("Player: "))),
         _framed("Creators: " + _fit(card.creators, INNER - len("Creators: "))),
         _blank(),
         _strip_line(),
         _blank(),
-        _framed(_header(card.games)),
+        _framed(header),
         _framed("┈" * INNER),
-        *_game_rows(card),
+        *game_rows,
         _blank(),
         _framed(_fit(footer, INNER)),
         _blank(),

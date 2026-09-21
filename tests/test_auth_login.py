@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 import softmax.auth as softmax_auth
 import softmax.perform_login as auth_module
 from softmax.auth import build_browser_login_url, load_user_token, save_user_token, set_active_player_session
-from softmax.cli import _build_manual_exchange_command, app
+from softmax.cli import app
 from softmax.perform_login import do_interactive_login_for_token
 
 runner = CliRunner()
@@ -109,14 +109,6 @@ def test_authenticate_falls_back_to_manual_when_callback_server_fails(
         open_browser=True,
     )
     assert captured_urls == ["https://softmax.com/cli-auth"]
-
-
-def test_manual_command_format() -> None:
-    assert _build_manual_exchange_command() == "softmax exchange-code '<CODE>'"
-    assert (
-        _build_manual_exchange_command("https://custom.server/api")
-        == "softmax exchange-code --server 'https://custom.server/api' '<CODE>'"
-    )
 
 
 def test_build_browser_login_url_uses_cli_auth_path() -> None:

@@ -35,18 +35,6 @@ class UntrustedApiServerError(Exception):
     """Raised when exchange_auth_code is called against an untrusted host."""
 
 
-def _is_trusted_exchange_host(api_server: str) -> bool:
-    host = (urlsplit(api_server).hostname or "").lower()
-    if not host:
-        return False
-    if host in _TRUSTED_EXACT_HOSTS:
-        return True
-    return any(host.endswith(suffix) for suffix in _TRUSTED_HOST_SUFFIXES)
-
-
-# --- on-disk storage ---
-
-
 class CachedPlayerSession(BaseModel):
     token: str
     expires_at: datetime
@@ -64,14 +52,10 @@ class Credentials(BaseModel):
     player_sessions: dict[str, ServerPlayerSessions] = Field(default_factory=dict)
 
 
-def _config_dir() -> Path:
+def _credentials_path() -> Path:
     config_dir = Path.home() / ".softmax"
     config_dir.mkdir(parents=True, exist_ok=True)
-    return config_dir
-
-
-def _credentials_path() -> Path:
-    return _config_dir() / CREDENTIALS_FILE
+    return config_dir / CREDENTIALS_FILE
 
 
 def _load_data() -> Credentials:
@@ -88,9 +72,6 @@ def _save_data(data: Credentials) -> None:
     with open(cred_path, "w") as f:
         yaml.safe_dump(data.model_dump(mode="json"), f, default_flow_style=False)
     os.chmod(cred_path, 0o600)
-
-
-# --- public token API ---
 
 
 def load_user_token(*, server: str) -> str | None:
@@ -111,8 +92,6 @@ def save_user_token(*, server: str, token: str) -> None:
     _save_data(data)
 
 
-# --- player sessions ---
-#
 # `player_sessions[server]` holds the active player pointer plus a per-player
 # token cache so `coworld player use <id>` can re-activate a player without
 # re-minting a token until it expires. `load_current_token` returns the active
@@ -202,8 +181,6 @@ def delete_all_tokens(*, server: str) -> bool:
     return deleted_token or deleted_session
 
 
-# --- HTTP / URL helpers ---
-
 # app_backend treats every credential as an external (non-team) caller unless the
 # request opts in with this header (metta.app_backend.auth._apply_elevation_gate,
 # spec 0080). That flip landed after softmax-cli shipped: the CLI has never sent
@@ -254,8 +231,9 @@ def fetch_cogames_whoami(*, api_server: str | None = None, token: str, elevated:
 
 def exchange_auth_code(*, api_server: str, code: str) -> str:
     """Exchange a one-time auth code for a real credential token."""
-    if not _is_trusted_exchange_host(api_server):
-        host = urlsplit(api_server).hostname or api_server
+    host = (urlsplit(api_server).hostname or "").lower()
+    if host not in _TRUSTED_EXACT_HOSTS and not any(host.endswith(suffix) for suffix in _TRUSTED_HOST_SUFFIXES):
+        host = host or api_server
         raise UntrustedApiServerError(
             f"Refusing to send auth code to untrusted host '{host}'. "
             "Auth codes are only exchanged with softmax.com, *.softmax.com, "
@@ -269,25 +247,6 @@ def exchange_auth_code(*, api_server: str, code: str) -> str:
     )
     response.raise_for_status()
     return response.json()["token"]
-
-
-def _format_status_error(exc: httpx.HTTPStatusError) -> str:
-    status = exc.response.status_code
-    if status // 100 == 3:
-        return (
-            "Failed to exchange auth code due to a redirect. "
-            "You may have accidentally pointed --server to the frontend application URL.\n"
-            "If you have a valid code, you can still run the following command to exchange it for a token:\n\n"
-            "softmax exchange-code <code>"
-        )
-    if status == 410:
-        return (
-            "This auth code has already been used or expired. "
-            "If you just ran `softmax login`, your token was saved automatically — run `softmax status` to verify."
-        )
-    if status == 400:
-        return "Invalid auth code format."
-    return f"Code exchange failed (HTTP {status}): {exc.response.text}"
 
 
 class ExchangeSuccess(BaseModel):
@@ -313,7 +272,25 @@ def try_exchange_auth_code(*, api_server: str, code: str) -> ExchangeOutcome:
     except UntrustedApiServerError as exc:
         return ExchangeFailure(message=str(exc))
     except httpx.HTTPStatusError as exc:
-        return ExchangeFailure(message=_format_status_error(exc))
+        status = exc.response.status_code
+        if status // 100 == 3:
+            message = (
+                "Failed to exchange auth code due to a redirect. "
+                "You may have accidentally pointed --server to the frontend application URL.\n"
+                "If you have a valid code, you can still run the following command to exchange it for a token:\n\n"
+                "softmax exchange-code <code>"
+            )
+        elif status == 410:
+            message = (
+                "This auth code has already been used or expired. "
+                "If you just ran `softmax login`, your token was saved automatically — "
+                "run `softmax status` to verify."
+            )
+        elif status == 400:
+            message = "Invalid auth code format."
+        else:
+            message = f"Code exchange failed (HTTP {status}): {exc.response.text}"
+        return ExchangeFailure(message=message)
     except httpx.HTTPError:
         return ExchangeFailure(
             message=(
