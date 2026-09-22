@@ -182,7 +182,7 @@ def delete_all_tokens(*, server: str) -> bool:
 
 
 # app_backend treats every credential as an external (non-team) caller unless the
-# request opts in with this header (metta.app_backend.auth._apply_elevation_gate,
+# request opts in with this header (observatory_api.auth._apply_elevation_gate,
 # spec 0080). That flip landed after softmax-cli shipped: the CLI has never sent
 # this header on any request, so a team member's own token silently resolved as
 # `is_softmax_team_member: false` on every call -- not because the token minted
