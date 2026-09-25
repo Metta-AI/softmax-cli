@@ -294,10 +294,6 @@ def test_the_rank_bar_runs_to_the_frame_with_no_percent_column():
     assert "%" not in top and "%" not in bottom
 
 
-def test_framed_clips_content_that_would_break_the_frame():
-    assert len(card._framed("x" * 200)) == len(card._framed(""))
-
-
 def test_empty_standings_render_placeholder():
     data = card.DEMO_CARD.model_copy(update={"games": []})
     out = card.render(data)

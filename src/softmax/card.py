@@ -82,7 +82,7 @@ FONT_NAME = {
 # regular forms: diagonals and a centered 2px cross cannot lose a column
 # without breaking the stroke weight.
 FONT_NAME_CONDENSED = {
-    " ": ["00", "00", "00", "00", "00", "00", "00", "00"],
+    **{char: FONT_NAME[char] for char in " .',!:VXY+"},
     "A": ["01110", "11111", "11011", "11111", "11111", "11011", "11011", "11011"],
     "B": ["11110", "11111", "11011", "11110", "11110", "11011", "11111", "11110"],
     "C": ["01111", "11111", "11000", "11000", "11000", "11000", "11111", "01111"],
@@ -104,10 +104,7 @@ FONT_NAME_CONDENSED = {
     "S": ["01111", "11111", "11000", "11110", "01111", "00011", "11111", "11110"],
     "T": ["1111", "1111", "0110", "0110", "0110", "0110", "0110", "0110"],
     "U": ["11011", "11011", "11011", "11011", "11011", "11011", "11111", "01110"],
-    "V": FONT_NAME["V"],
     "W": ["1100011", "1100011", "1100011", "1100011", "1101011", "1111111", "1110111", "1100011"],
-    "X": FONT_NAME["X"],
-    "Y": FONT_NAME["Y"],
     "Z": ["11111", "11111", "00110", "01100", "01100", "11000", "11111", "11111"],
     "0": ["01110", "11111", "11011", "11011", "11011", "11011", "11111", "01110"],
     "1": ["0110", "1110", "0110", "0110", "0110", "0110", "1111", "1111"],
@@ -119,26 +116,16 @@ FONT_NAME_CONDENSED = {
     "7": ["11111", "11111", "00011", "00110", "00110", "01100", "01100", "01100"],
     "8": ["01110", "11111", "11011", "01110", "01110", "11011", "11111", "01110"],
     "9": ["01110", "11111", "11011", "11011", "01111", "00011", "11111", "11110"],
-    ".": ["00", "00", "00", "00", "00", "00", "11", "11"],
     "-": ["0000", "0000", "0000", "1111", "1111", "0000", "0000", "0000"],
     "_": ["0000", "0000", "0000", "0000", "0000", "0000", "1111", "1111"],
-    "'": ["11", "11", "00", "00", "00", "00", "00", "00"],
-    ",": ["00", "00", "00", "00", "00", "11", "11", "10"],
-    "!": ["11", "11", "11", "11", "11", "00", "11", "11"],
     "?": ["11110", "11111", "00011", "00110", "01100", "00000", "01100", "01100"],
-    "+": FONT_NAME["+"],
-    ":": ["00", "00", "11", "11", "00", "00", "11", "11"],
 }
 SUPPORTED_NAME_CHARS = frozenset(FONT_NAME)
+HALF_BLOCKS = {"00": " ", "01": "▄", "10": "▀", "11": "█"}
 
 
 def _rasterize(text: str, font: dict[str, list[str]], gap: int = 2) -> list[str]:
-    lines = ["" for _ in range(8)]
-    for i, ch in enumerate(text):
-        glyph = font[ch]
-        for r in range(8):
-            lines[r] += ("0" * gap if i else "") + glyph[r]
-    return lines
+    return [("0" * gap).join(font[ch][row] for ch in text) for row in range(8)]
 
 
 class GameRow(BaseModel):
@@ -400,18 +387,10 @@ def build_lines(card: PlayerCard) -> list[str]:
     name_px = _rasterize(mark, FONT_NAME)
     if len(name_px[0]) > INNER:
         name_px = _rasterize(mark, FONT_NAME_CONDENSED, gap=1)
-    grid = [[0] * INNER for _ in range(8)]
-    for row in range(8):
-        for column, bit in enumerate(name_px[row][:INNER]):
-            if bit == "1":
-                grid[row][column] = 1
+    name_px = [row[:INNER].ljust(INNER, "0") for row in name_px]
     hero_lines = []
-    for text_row in range(4):
-        text = ""
-        for column in range(INNER):
-            top, bottom = grid[2 * text_row][column], grid[2 * text_row + 1][column]
-            text += "█" if top and bottom else "▀" if top else "▄" if bottom else " "
-        hero_lines.append(_framed(text))
+    for upper, lower in zip(name_px[::2], name_px[1::2], strict=True):
+        hero_lines.append(_framed("".join(HALF_BLOCKS[top + bottom] for top, bottom in zip(upper, lower, strict=True))))
 
     bar_width = _bar_w(card.games)
     rank_width = STANDING_W - bar_width - len(RANK_GAP)
