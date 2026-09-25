@@ -23,6 +23,16 @@ class WireModel(BaseModel):
 ResponseT = TypeVar("ResponseT", bound=WireModel)
 
 
+def _search_params(
+    query: str, limit: int, cursor: str | None, author_user_id: str | None, author_player_id: str | None
+) -> dict[str, str | int]:
+    params: dict[str, str | int] = {"q": query, "limit": limit}
+    for key, value in (("author_user_id", author_user_id), ("author_player_id", author_player_id), ("cursor", cursor)):
+        if value is not None:
+            params[key] = value
+    return params
+
+
 class UserAuthor(WireModel):
     type: Literal["user"]
     user_id: str
@@ -283,13 +293,7 @@ class ForumWikiApi:
         cursor: str | None = None,
     ) -> ForumSearchPage:
         path = "forums/search" if forum_slug is None else f"forums/{quote(forum_slug, safe='')}/search"
-        params: dict[str, str | int] = {"q": query, "limit": limit}
-        if author_user_id is not None:
-            params["author_user_id"] = author_user_id
-        if author_player_id is not None:
-            params["author_player_id"] = author_player_id
-        if cursor is not None:
-            params["cursor"] = cursor
+        params = _search_params(query, limit, cursor, author_user_id, author_player_id)
         return self._validated_request(ForumSearchPage, "GET", path, params=params)
 
     def read_wiki_page(self, wiki_slug: str, page_slug: str) -> WikiPagePublic:
@@ -339,13 +343,7 @@ class ForumWikiApi:
         limit: int = 20,
         cursor: str | None = None,
     ) -> WikiSearchPage:
-        params: dict[str, str | int] = {"q": query, "limit": limit}
-        if author_user_id is not None:
-            params["author_user_id"] = author_user_id
-        if author_player_id is not None:
-            params["author_player_id"] = author_player_id
-        if cursor is not None:
-            params["cursor"] = cursor
+        params = _search_params(query, limit, cursor, author_user_id, author_player_id)
         return self._validated_request(
             WikiSearchPage, "GET", f"wikis/{quote(wiki_slug, safe='')}/search", params=params
         )

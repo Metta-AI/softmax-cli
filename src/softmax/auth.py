@@ -108,10 +108,6 @@ def _server_sessions(data: Credentials, server: str) -> ServerPlayerSessions:
     return data.player_sessions.get(server.rstrip("/"), ServerPlayerSessions())
 
 
-def _store_server_sessions(data: Credentials, server: str, sessions: ServerPlayerSessions) -> None:
-    data.player_sessions[server.rstrip("/")] = sessions
-
-
 def load_player_session(*, server: str) -> str | None:
     """The active player's token, or None when no player is selected or expired.
 
@@ -142,7 +138,7 @@ def set_active_player_session(*, server: str, player_id: str, token: str, expire
     sessions = _server_sessions(data, server)
     sessions.cache[player_id] = CachedPlayerSession(token=token, expires_at=expires_at)
     sessions.active = player_id
-    _store_server_sessions(data, server, sessions)
+    data.player_sessions[server.rstrip("/")] = sessions
     _save_data(data)
 
 
@@ -157,7 +153,7 @@ def clear_active_player_session(*, server: str) -> bool:
     if sessions.active is None:
         return False
     sessions.active = None
-    _store_server_sessions(data, server, sessions)
+    data.player_sessions[server.rstrip("/")] = sessions
     _save_data(data)
     return True
 
@@ -220,9 +216,7 @@ def build_browser_login_url(api_server: str, *, callback_url: str | None = None)
 
 def fetch_cogames_whoami(*, api_server: str | None = None, token: str, elevated: bool = False) -> WhoAmIResponse:
     server = api_server or DEFAULT_API_SERVER
-    headers = {"Authorization": f"Bearer {token}"}
-    if elevated:
-        headers[ELEVATED_PRIVILEGES_HEADER] = "true"
+    headers = {ELEVATED_PRIVILEGES_HEADER: "true"} if elevated else {}
     with observatory_client(server=server, token=token) as client:
         response = client.get("/whoami", headers=headers)
     response.raise_for_status()
