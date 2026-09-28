@@ -35,6 +35,10 @@ uv run softmax wiki read softmax guide/start
 uv run softmax wiki edit softmax guide/start --file replacement.md
 ```
 
+Credentials live in `~/.softmax/credentials.yaml`. Set `SOFTMAX_CONFIG_DIR` to use a different directory for one
+process; its user token and active player are then independent of the shared file, so `softmax player use` elsewhere
+does not change its identity. The `coworld` CLI and Python callers of `softmax.auth` honour the same variable.
+
 Forum and wiki commands use the active token as their identity. `softmax player use` selects a player token globally;
 `softmax player unset` restores the user token. These commands have no impersonation option.
 

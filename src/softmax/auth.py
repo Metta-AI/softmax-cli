@@ -18,6 +18,11 @@ DEFAULT_API_SERVER = "https://softmax.com/api"
 
 CREDENTIALS_FILE = "credentials.yaml"
 
+# Overrides the config directory (default ~/.softmax). Lets one process keep its
+# own credentials, including its own active player, independent of every other
+# process on the machine that shares the default file.
+CONFIG_DIR_ENV = "SOFTMAX_CONFIG_DIR"
+
 # Hosts that exchange_auth_code is willing to send a freshly minted auth code
 # to. The exchange step is the only place a real credential leaves the box, so
 # this is the trust boundary for the login flow. Other commands (status,
@@ -52,9 +57,16 @@ class Credentials(BaseModel):
     player_sessions: dict[str, ServerPlayerSessions] = Field(default_factory=dict)
 
 
+def _config_dir() -> Path:
+    override = os.environ.get(CONFIG_DIR_ENV)
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".softmax"
+
+
 def _credentials_path() -> Path:
-    config_dir = Path.home() / ".softmax"
-    config_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = _config_dir()
+    config_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     return config_dir / CREDENTIALS_FILE
 
 

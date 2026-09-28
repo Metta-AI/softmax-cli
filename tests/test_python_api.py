@@ -241,3 +241,37 @@ def test_expired_player_session_falls_through_to_user_token(
     assert load_player_session(server=server) is None
     # load_current_token falls through to the user token.
     assert load_current_token(server=server) == "user-token"
+
+
+def test_credentials_default_to_home_softmax(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv(auth.CONFIG_DIR_ENV, "")
+
+    save_user_token(server="https://softmax.com/api", token="user-token")
+
+    credentials_path = tmp_path / ".softmax" / "credentials.yaml"
+    assert yaml.safe_load(credentials_path.read_text())["tokens"] == {"https://softmax.com/api": "user-token"}
+    assert credentials_path.stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / ".softmax").stat().st_mode & 0o777 == 0o700
+
+
+def test_config_dir_env_isolates_credentials(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    server = "https://softmax.com/api"
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_user_token(server=server, token="shared-user-token")
+    _activate_player(server, "shared-player-token")
+
+    override_dir = tmp_path / "lane" / "config"
+    monkeypatch.setenv(auth.CONFIG_DIR_ENV, str(override_dir))
+    assert load_current_token(server=server) is None
+    save_user_token(server=server, token="lane-user-token")
+
+    override_path = override_dir / "credentials.yaml"
+    assert load_current_token(server=server) == "lane-user-token"
+    assert yaml.safe_load(override_path.read_text())["tokens"] == {server: "lane-user-token"}
+    assert override_path.stat().st_mode & 0o777 == 0o600
+    assert override_dir.stat().st_mode & 0o777 == 0o700
+
+    monkeypatch.delenv(auth.CONFIG_DIR_ENV)
+    assert load_current_token(server=server) == "shared-player-token"
+    assert load_user_token(server=server) == "shared-user-token"

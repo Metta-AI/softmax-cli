@@ -69,6 +69,8 @@ Tests cover auth/login, the Python API, player identity switching, and CLI plugi
 - Versioned via `setuptools_scm` off `softmax-v*` git tags (`fallback_version = 0.0.0`).
 - Downstream packages pin an exact `softmax-cli==X.Y.Z`; bumping the public auth API can break them — coordinate version
   bumps with consumers like `coworld`.
+- `credentials.yaml` lives in `$SOFTMAX_CONFIG_DIR` when set and non-empty, else `~/.softmax` (`auth._config_dir`).
+  Tests sandbox with `HOME`; `tests/conftest.py` clears the override so an inherited value cannot leak into them.
 - `player_sessions[server]` in `credentials.yaml` is a structured object (`active` pointer + per-player `cache` of
   `{token, expires_at}`), not a flat token string. Use the typed helpers in `auth.py` (`set_active_player_session`,
   `clear_active_player_session`, `get_active_player_id`, `get_cached_player_session`, `load_player_session`);
