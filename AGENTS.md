@@ -29,8 +29,7 @@ credential. `player list`/`use` themselves authenticate with the user token (pla
 ## Tests
 
 ```bash
-uv run metta pytest packages/softmax-cli/tests -v
-uv run metta pytest --changed
+uv run --extra test pytest tests -v
 ```
 
 Tests cover auth/login, the Python API, player identity switching, and CLI plugin wiring; a `BUILD.bazel` exists under
@@ -38,9 +37,9 @@ Tests cover auth/login, the Python API, player identity switching, and CLI plugi
 
 ## Lint
 
-```bash
-./bazel/fix_lint.sh              # ruff (also runs via the Edit/Write hook)
-```
+Use the lint configuration and checks supplied by this checkout.
+If its configuration references a missing parent file, report that setup gap
+instead of assuming an external workspace or silently dropping lint rules.
 
 ## Source layout (`src/softmax/`)
 
