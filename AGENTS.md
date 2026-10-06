@@ -29,8 +29,13 @@ credential. `player list`/`use` themselves authenticate with the user token (pla
 ## Tests
 
 ```bash
-uv run --extra test pytest tests -v
+python -m pytest tests -v
 ```
+
+Run this in an isolated environment with this package and its `test` extra
+installed. Source metadata currently references parent-workspace files
+(`setuptools_scm.root` and the Ruff `extend` path). Verify those inputs before
+using a fresh standalone checkout; report missing build or lint configuration.
 
 Tests cover auth/login, the Python API, player identity switching, and CLI plugin wiring; a `BUILD.bazel` exists under
 `tests/`.
