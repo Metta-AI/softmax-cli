@@ -40,7 +40,7 @@ where = ["src"]
 tag_regex = "^softmax-v(?P<version>\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)$"
 version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
-root = "../.."
+root = "../../.."
 fallback_version = "0.0.0"
 git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "softmax-v*"]
 
