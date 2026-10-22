@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from softmax import rate_limits
-from softmax._http import observatory_client
+from softmax_client import rate_limits
+from softmax_client.http import observatory_client
 
 
 def test_observatory_client_uses_environment_proxy(monkeypatch, httpserver):
@@ -14,7 +14,7 @@ def test_observatory_client_uses_environment_proxy(monkeypatch, httpserver):
         {"proxied": True}
     )
 
-    with observatory_client(server="http://proxy-only.invalid", token="token") as client:
+    with observatory_client(server="http://proxy-only.invalid", token="token", product="softmax-cli") as client:
         assert client.get("/whoami").json() == {"proxied": True}
 
 
@@ -37,7 +37,7 @@ def test_shared_rejection_retries_preserve_the_request_and_stop(monkeypatch, rec
         return response
 
     with observatory_client(
-        server="https://example.com", token="token", transport=httpx.MockTransport(handle)
+        server="https://example.com", token="token", transport=httpx.MockTransport(handle), product="softmax-cli"
     ) as client:
         response = client.post("/submit", json={"idempotency_key": "submission-1"})
 
@@ -65,7 +65,7 @@ def test_unrelated_errors_and_delays_beyond_the_budget_are_not_retried(monkeypat
         return httpx.Response(status, headers={"X-RateLimit-Outcome": outcome, "Retry-After": retry_after})
 
     with observatory_client(
-        server="https://example.com", token="token", transport=httpx.MockTransport(handle)
+        server="https://example.com", token="token", transport=httpx.MockTransport(handle), product="softmax-cli"
     ) as client:
         assert client.get("/resource").status_code == status
     assert len(calls) == 1
@@ -87,7 +87,7 @@ def test_retry_budget_does_not_shorten_the_server_delay(monkeypatch):
         return httpx.Response(429, headers={"X-RateLimit-Outcome": "rejected", "Retry-After": "20"})
 
     with observatory_client(
-        server="https://example.com", token="token", transport=httpx.MockTransport(handle)
+        server="https://example.com", token="token", transport=httpx.MockTransport(handle), product="softmax-cli"
     ) as client:
         assert client.get("/resource").status_code == 429
     assert len(calls) == 2
@@ -102,7 +102,7 @@ def test_streaming_upload_is_not_retried_after_transport_buffers_it():
         return httpx.Response(429, headers={"X-RateLimit-Outcome": "rejected", "Retry-After": "0"})
 
     with observatory_client(
-        server="https://example.com", token="token", transport=httpx.MockTransport(handle)
+        server="https://example.com", token="token", transport=httpx.MockTransport(handle), product="softmax-cli"
     ) as client:
         response = client.post("/upload", content=iter([b"payload"]))
     assert response.status_code == 429
@@ -126,7 +126,7 @@ def test_delayed_wake_preserves_final_response_without_retrying(monkeypatch):
         )
 
     with observatory_client(
-        server="https://example.com", token="token", transport=httpx.MockTransport(handle)
+        server="https://example.com", token="token", transport=httpx.MockTransport(handle), product="softmax-cli"
     ) as client:
         response = client.get("/resource")
     assert response.status_code == 429

@@ -13,62 +13,20 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict
 from rich import box
 from rich.table import Table
 
-from softmax import auth
 from softmax._console import console
-from softmax._http import observatory_client
-from softmax.auth import DEFAULT_API_SERVER
-
-
-class PlayerResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    id: str  # ply_<uuid>
-    name: str
-    is_default: bool = False
-    avatar_url: str | None = None
-    created_at: datetime
-    disabled_at: datetime | None = None
-    user_id: str | None = None
-
-
-class PlayerLoginResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    player_id: str
-    token: str
-    expires_at: datetime
-
-
-def list_players(*, server: str, token: str) -> list[PlayerResponse]:
-    with observatory_client(server=server, token=token) as client:
-        response = client.get("/players")
-    response.raise_for_status()
-    return [PlayerResponse.model_validate(entry) for entry in response.json()]
-
-
-def create_player(*, server: str, token: str, name: str) -> PlayerResponse:
-    with observatory_client(server=server, token=token) as client:
-        response = client.post("/players", json={"name": name})
-    response.raise_for_status()
-    return PlayerResponse.model_validate(response.json())
-
-
-def login_player(*, server: str, token: str, player_id: str) -> PlayerLoginResponse:
-    with observatory_client(server=server, token=token) as client:
-        response = client.post(f"/players/{player_id}/login")
-    response.raise_for_status()
-    return PlayerLoginResponse.model_validate(response.json())
+from softmax_client import credentials
+from softmax_client.auth import DEFAULT_API_SERVER
+from softmax_client.players import create_player, list_players, login_player
 
 
 def _user_token(server: str) -> str:
     # Player routes require a real user identity (USER_AUTH) and reject
     # player-scoped tokens, so resolve the user token directly rather than
     # load_current_token, which would pick up the active player session.
-    token = auth.load_user_token(server=server)
+    token = credentials.load_user_token(server=server)
     if token is None:
         raise RuntimeError(f"Not authenticated. Run: softmax login --server {server}")
     return token
@@ -82,8 +40,8 @@ def player_list(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
     json_output: Annotated[bool, typer.Option("--json", help="Print raw JSON.")] = False,
 ) -> None:
-    active_id = auth.get_active_player_id(server=server)
-    players = list_players(server=server, token=_user_token(server))
+    active_id = credentials.get_active_player_id(server=server)
+    players = list_players(server=server, token=_user_token(server), product="softmax-cli")
     if json_output:
         payload = [{**p.model_dump(mode="json"), "active": p.id == active_id} for p in players]
         print(json.dumps(payload, indent=2))
@@ -109,7 +67,7 @@ def player_create(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
     json_output: Annotated[bool, typer.Option("--json", help="Print raw JSON.")] = False,
 ) -> None:
-    player = create_player(server=server, token=_user_token(server), name=name)
+    player = create_player(server=server, token=_user_token(server), name=name, product="softmax-cli")
     if json_output:
         print(json.dumps(player.model_dump(mode="json"), indent=2))
         return
@@ -122,22 +80,24 @@ def player_use(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
 ) -> None:
     # Reuse a cached, non-expired session rather than minting a fresh token.
-    cached = auth.get_cached_player_session(server=server, player_id=player_id)
+    cached = credentials.get_cached_player_session(server=server, player_id=player_id)
     if cached is not None and cached.expires_at - timedelta(minutes=5) > datetime.now(UTC):
-        auth.set_active_player_session(
+        credentials.set_active_player_session(
             server=server, player_id=player_id, token=cached.token, expires_at=cached.expires_at
         )
         console.print(f"[green]Active player set to[/green] [bold]{player_id}[/bold] [dim](cached session)[/dim]")
         return
 
     token = _user_token(server)
-    players = list_players(server=server, token=token)
+    players = list_players(server=server, token=token, product="softmax-cli")
     match = next((p for p in players if p.id == player_id), None)
     if match is None:
         console.print(f"[red]Player '{player_id}' not found in your account.[/red]")
         raise typer.Exit(1)
-    login = login_player(server=server, token=token, player_id=player_id)
-    auth.set_active_player_session(server=server, player_id=player_id, token=login.token, expires_at=login.expires_at)
+    login = login_player(server=server, token=token, player_id=player_id, product="softmax-cli")
+    credentials.set_active_player_session(
+        server=server, player_id=player_id, token=login.token, expires_at=login.expires_at
+    )
     console.print(f"[green]Active player set to[/green] [bold]{match.name}[/bold] ({player_id})")
     console.print(f"[dim]Session expires:[/dim] {login.expires_at.isoformat()}")
 
@@ -146,7 +106,7 @@ def player_use(
 def player_unset(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
 ) -> None:
-    if auth.clear_active_player_session(server=server):
+    if credentials.clear_active_player_session(server=server):
         console.print("[green]Reverted to your main user credential.[/green]")
     else:
         console.print("[yellow]No active player was set.[/yellow]")

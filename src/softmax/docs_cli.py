@@ -6,8 +6,8 @@ from typing import Annotated
 import httpx
 import typer
 
-from softmax.agent import user_agent
 from softmax.docs import DOCS_AGENT_INDEX_URL, DOCS_AGENT_SKILL_URL, DOCS_URL
+from softmax_client.agent import user_agent
 
 
 def validate_docs_path(path: str) -> None:

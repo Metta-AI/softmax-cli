@@ -9,9 +9,10 @@ import sys
 import threading
 import time
 import webbrowser
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Sequence
+from typing import Literal
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -20,18 +21,15 @@ from fastapi.responses import HTMLResponse
 from rich.panel import Panel
 
 from softmax._console import console
-from softmax.auth import (
-    ExchangeFailure,
-    build_browser_login_url,
-    save_user_token,
-    try_exchange_auth_code,
-)
+from softmax_client.auth import ExchangeFailure, build_browser_login_url, try_exchange_auth_code
+from softmax_client.credentials import save_user_token
 
 
 @dataclass
 class _CLIAuthSession:
     token: str | None = None
     error: str | None = None
+    server_error: str | None = None
     auth_completed: threading.Event = field(default_factory=threading.Event)
     completion_lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -244,7 +242,7 @@ def _create_app(session: _CLIAuthSession, *, api_server: str) -> FastAPI:
             _finish_authentication(session, error="No code received in callback")
             return HTMLResponse(content=_error_html(error_message="No code received"), status_code=400)
 
-        result = try_exchange_auth_code(api_server=api_server, code=code)
+        result = try_exchange_auth_code(api_server=api_server, code=code, product="softmax-cli")
         if isinstance(result, ExchangeFailure):
             _finish_authentication(session, error=result.message)
             return HTMLResponse(content=_error_html(error_message=result.message), status_code=500)
@@ -286,7 +284,7 @@ def _start_manual_code_prompt(*, session: _CLIAuthSession, api_server: str) -> N
             if not code:
                 continue
 
-            result = try_exchange_auth_code(api_server=api_server, code=code)
+            result = try_exchange_auth_code(api_server=api_server, code=code, product="softmax-cli")
             if isinstance(result, ExchangeFailure):
                 _finish_authentication(session, error=result.message)
                 return
@@ -309,13 +307,13 @@ def _run_server(*, session: _CLIAuthSession, port: int, api_server: str) -> None
         )
         asyncio.run(uvicorn.Server(config).serve())
     except Exception as exc:
-        session.error = f"Server error: {exc}"
+        session.server_error = f"Server error: {exc}"
 
 
 def _wait_for_callback_server_to_start(*, session: _CLIAuthSession, port: int, timeout_seconds: float = 3.0) -> bool:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
-        if session.error:
+        if session.server_error:
             return False
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=0.2):
@@ -343,8 +341,6 @@ def do_interactive_login_for_token(
     ).start()
     if _wait_for_callback_server_to_start(session=session, port=port):
         callback_url = f"http://127.0.0.1:{port}/callback"
-    session.error = None
-
     auth_url = build_browser_login_url(api_server, callback_url=callback_url)
     if agent_hint:
         console.print(Panel(agent_hint, title="🤖 Agent Hint", border_style="cyan"))

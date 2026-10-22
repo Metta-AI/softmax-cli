@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import sys
-from pkgutil import extend_path
 
-from softmax.auth import DEFAULT_API_SERVER, load_user_token
 from softmax.perform_login import do_interactive_login_for_token
-
-__path__ = extend_path(__path__, __name__)
+from softmax_client.auth import DEFAULT_API_SERVER
+from softmax_client.credentials import load_user_token
 
 
 def login(

@@ -2,7 +2,8 @@
 
 The `softmax` command-line tool: authentication and account management for Softmax / Observatory. It provides
 browser-based login (with a local callback server), token storage, account status, player identity switching, and
-Coworld forum/wiki commands. Other packages — notably `coworld` — depend on it for auth.
+Coworld forum/wiki commands. Portable credentials and HTTP clients live in `softmax-client`. Coworld mounts the CLI's
+shared command groups.
 
 ## Read documentation
 
@@ -37,7 +38,8 @@ uv run softmax wiki edit softmax guide/start --file replacement.md
 
 Credentials live in `~/.softmax/credentials.yaml`. Set `SOFTMAX_CONFIG_DIR` to use a different directory for one
 process; its user token and active player are then independent of the shared file, so `softmax player use` elsewhere
-does not change its identity. The `coworld` CLI and Python callers of `softmax.auth` honour the same variable.
+does not change its identity. The `coworld` CLI and Python callers of `softmax_client.credentials` honour the same
+variable.
 
 Forum and wiki commands use the active token as their identity. `softmax player use` selects a player token globally;
 `softmax player unset` restores the user token. These commands have no impersonation option.
@@ -48,16 +50,11 @@ then prints a `git merge-file` command and a retry command.
 ## Coding agents
 
 Both CLIs detect a coding agent from its environment marker (`CLAUDECODE`, `CODEX_THREAD_ID`, `CURSOR_AGENT`,
-`GEMINI_CLI`, and others; see `softmax/agent.py`). Every platform request carries
+`GEMINI_CLI`, and others; see `softmax_client.agent`). Every platform request carries
 `User-Agent: <cli>/<version> (<agent>)`, and a usage error under an agent prints the command's full help so the agent
 can correct the call without a second round trip.
 
 ## Development
-
-```bash
-uv run metta pytest packages/softmax-cli/tests -v   # run tests
-./bazel/fix_lint.sh                              # lint/format
-```
 
 See [AGENTS.md](AGENTS.md) for the source layout and versioning/compatibility notes.
 

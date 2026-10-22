@@ -22,9 +22,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import httpx
 from pydantic import BaseModel
 
-from softmax._http import observatory_client
-from softmax.auth import WhoAmIResponse
-from softmax.players import PlayerResponse
+from softmax_client.auth import WhoAmIResponse
+from softmax_client.http import observatory_client
+from softmax_client.players import PlayerResponse
 
 # 8-row pixel glyphs, 1 bit = 1 column x half text row. Widths vary per glyph.
 FONT_NAME = {
@@ -238,7 +238,9 @@ def fetch_player_cards(
     still get a card. `on_stage` hears a short human-readable line as each
     fetch phase starts (the CLI loader shows it).
     """
-    with observatory_client(server=api_server, token=token, timeout=30.0, transport=transport) as http:
+    with observatory_client(
+        server=api_server, token=token, timeout=30.0, transport=transport, product="softmax-cli"
+    ) as http:
         on_stage("finding your players")
         owner = WhoAmIResponse.model_validate(http.get("/whoami").raise_for_status().json())
         players = [PlayerResponse.model_validate(p) for p in http.get("/players").raise_for_status().json()]

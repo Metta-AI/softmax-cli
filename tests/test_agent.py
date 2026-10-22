@@ -4,9 +4,9 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from softmax._http import observatory_client
-from softmax.agent import AGENT_ENV_MARKERS, detect_coding_agent, user_agent
 from softmax.cli import app
+from softmax_client.agent import AGENT_ENV_MARKERS, detect_coding_agent, user_agent
+from softmax_client.http import observatory_client
 
 ALL_MARKERS = [variable for _name, variable in AGENT_ENV_MARKERS]
 
@@ -57,7 +57,9 @@ def test_observatory_client_sends_the_user_agent(monkeypatch: pytest.MonkeyPatch
         seen.append(request.headers["User-Agent"])
         return httpx.Response(200, json={})
 
-    with observatory_client(server="https://example.com", token="token", transport=httpx.MockTransport(handle)) as c:
+    with observatory_client(
+        server="https://example.com", token="token", transport=httpx.MockTransport(handle), product="softmax-cli"
+    ) as c:
         c.get("/whoami")
     assert len(seen) == 1
     assert seen[0].startswith("softmax-cli/")

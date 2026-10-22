@@ -8,8 +8,8 @@ import yaml
 from pydantic import ValidationError
 
 import softmax
-import softmax.auth as auth
-from softmax.auth import (
+from softmax_client import credentials as credential_store
+from softmax_client.credentials import (
     clear_active_player_session,
     get_cached_player_session,
     load_current_token,
@@ -47,7 +47,7 @@ def test_malformed_credentials_fail_validation(monkeypatch: pytest.MonkeyPatch, 
     (config_dir / "credentials.yaml").write_text(yaml.safe_dump(credentials))
 
     with pytest.raises(ValidationError):
-        auth._load_data()
+        credential_store._load_data()
 
 
 def test_unknown_credential_fields_survive_save(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -68,21 +68,21 @@ def test_delete_all_tokens_is_one_credentials_update(monkeypatch: pytest.MonkeyP
     server = "https://softmax.com/api"
     save_user_token(server=server, token="user-token")
     _activate_player(server, "player-token")
-    credentials = auth._load_data()
+    credentials = credential_store._load_data()
     calls = {"loads": 0, "saves": 0}
 
-    def load() -> auth.Credentials:
+    def load() -> credential_store.Credentials:
         calls["loads"] += 1
         return credentials
 
-    def save(data: auth.Credentials) -> None:
+    def save(data: credential_store.Credentials) -> None:
         calls["saves"] += 1
         assert data is credentials
 
-    monkeypatch.setattr(auth, "_load_data", load)
-    monkeypatch.setattr(auth, "_save_data", save)
+    monkeypatch.setattr(credential_store, "_load_data", load)
+    monkeypatch.setattr(credential_store, "_save_data", save)
 
-    assert auth.delete_all_tokens(server=server) is True
+    assert credential_store.delete_all_tokens(server=server) is True
     assert calls == {"loads": 1, "saves": 1}
     assert server not in credentials.tokens
     assert server not in credentials.player_sessions
@@ -245,7 +245,7 @@ def test_expired_player_session_falls_through_to_user_token(
 
 def test_credentials_default_to_home_softmax(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv(auth.CONFIG_DIR_ENV, "")
+    monkeypatch.setenv(credential_store.CONFIG_DIR_ENV, "")
 
     save_user_token(server="https://softmax.com/api", token="user-token")
 
@@ -262,7 +262,7 @@ def test_config_dir_env_isolates_credentials(monkeypatch: pytest.MonkeyPatch, tm
     _activate_player(server, "shared-player-token")
 
     override_dir = tmp_path / "lane" / "config"
-    monkeypatch.setenv(auth.CONFIG_DIR_ENV, str(override_dir))
+    monkeypatch.setenv(credential_store.CONFIG_DIR_ENV, str(override_dir))
     assert load_current_token(server=server) is None
     save_user_token(server=server, token="lane-user-token")
 
@@ -272,6 +272,6 @@ def test_config_dir_env_isolates_credentials(monkeypatch: pytest.MonkeyPatch, tm
     assert override_path.stat().st_mode & 0o777 == 0o600
     assert override_dir.stat().st_mode & 0o777 == 0o700
 
-    monkeypatch.delenv(auth.CONFIG_DIR_ENV)
+    monkeypatch.delenv(credential_store.CONFIG_DIR_ENV)
     assert load_current_token(server=server) == "shared-player-token"
     assert load_user_token(server=server) == "shared-user-token"

@@ -1,6 +1,6 @@
 import pytest
 
-from softmax.auth import CONFIG_DIR_ENV
+from softmax_client.credentials import CONFIG_DIR_ENV
 
 
 @pytest.fixture(autouse=True)

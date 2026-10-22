@@ -11,24 +11,16 @@ from __future__ import annotations
 import contextlib
 import json
 import sys
-from typing import Any
 
 import httpx
 import typer
+from click import Context, UsageError
 from typer.core import TyperGroup
 
-from softmax.agent import detect_coding_agent
 from softmax.docs import DOCS_AUTHENTICATION_URL, DOCS_ERROR_HANDLING_URL, DOCS_RATE_LIMITS_URL
+from softmax_client.agent import detect_coding_agent
 
 REQUEST_ID_HEADER = "X-Request-Id"
-
-# typer >= 0.26 vendors its own click and no longer depends on the click package, so the
-# usage errors its parser raises come from `typer._click`, not `click`. Older typer parses
-# with the real click. Everything else this module needs (echo, Context, Exit) is public typer.
-try:
-    from typer._click.exceptions import UsageError
-except ImportError:
-    from click.exceptions import UsageError
 
 
 def render_http_status_error(exc: httpx.HTTPStatusError) -> str:
@@ -115,9 +107,9 @@ class AgentFriendlyGroup(TyperGroup):
         self,
         info_name: str | None,
         args: list[str],
-        parent: typer.Context | None = None,
-        **extra: Any,
-    ) -> typer.Context:
+        parent: Context | None = None,
+        **extra: object,
+    ) -> Context:
         # Root-level parsing (`softmax --bogus`) raises before invoke() runs.
         try:
             return super().make_context(info_name, args, parent, **extra)
@@ -125,7 +117,7 @@ class AgentFriendlyGroup(TyperGroup):
             _echo_help_for_agent(exc.ctx)
             raise
 
-    def invoke(self, ctx: typer.Context) -> object:
+    def invoke(self, ctx: Context) -> object:
         try:
             return super().invoke(ctx)
         except httpx.HTTPStatusError as exc:
@@ -138,7 +130,7 @@ class AgentFriendlyGroup(TyperGroup):
             raise
 
 
-def _echo_help_for_agent(ctx: typer.Context | None) -> None:
+def _echo_help_for_agent(ctx: Context | None) -> None:
     if ctx is None or detect_coding_agent() is None:
         return
     # Typer's Rich formatter prints the help while get_help() runs instead of returning it,

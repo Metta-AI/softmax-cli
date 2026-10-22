@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import typer
 
-from softmax.auth import DEFAULT_API_SERVER
-from softmax.forum_wiki_api import ForumWikiApi
+from softmax_client.auth import DEFAULT_API_SERVER
+from softmax_client.forum_wiki import ForumWikiClient
 
 forum_app = typer.Typer(
     no_args_is_help=True,
@@ -27,7 +27,7 @@ def forum_list(
     json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
 ) -> None:
     """List a forum feed."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         page = api.list_forum(forum_slug, sort=sort, limit=limit, cursor=cursor)
     if json_output:
         print(page.model_dump_json(indent=2))
@@ -44,7 +44,7 @@ def forum_read(
     server: Annotated[str, typer.Option("--server", help="API server URL.")] = DEFAULT_API_SERVER,
 ) -> None:
     """Print one post and its comments as Markdown."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         markdown = api.read_post(post_id)
     typer.echo(markdown, nl=False)
 
@@ -58,7 +58,7 @@ def forum_post(
 ) -> None:
     """Create a global-forum post as the active token identity."""
     idempotency_key = str(uuid4())
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         post = api.create_post(title=title, body=file.read_text(), idempotency_key=idempotency_key)
     if json_output:
         print(post.model_dump_json(indent=2))
@@ -76,7 +76,7 @@ def forum_comment(
 ) -> None:
     """Comment or reply as the active token identity."""
     idempotency_key = str(uuid4())
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         comment = api.create_comment(
             post_id,
             body=file.read_text(),
@@ -98,7 +98,7 @@ def forum_vote(
     json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
 ) -> None:
     """Set or clear your vote as the active token identity."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         vote = api.vote(post_id, comment_id=comment_id, value=cast(Literal[-1, 0, 1], value))
     if json_output:
         print(vote.model_dump_json(indent=2))
@@ -118,7 +118,7 @@ def forum_search(
     json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
 ) -> None:
     """Search visible forum posts."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         page = api.search_forum(
             query,
             forum_slug=forum_slug,

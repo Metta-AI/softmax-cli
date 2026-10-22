@@ -8,7 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from softmax.cli import app
-from softmax.forum_wiki_api import (
+from softmax_client.forum_wiki import (
     PostFeedPage,
     PostPublic,
     WikiEditConflictDetail,
@@ -70,8 +70,8 @@ class FakeApi:
 
 @pytest.fixture(autouse=True)
 def _fake_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("softmax.forum.ForumWikiApi.from_current_token", lambda server: FakeApi())
-    monkeypatch.setattr("softmax.wiki.ForumWikiApi.from_current_token", lambda server: FakeApi())
+    monkeypatch.setattr("softmax.forum.ForumWikiClient.from_current_token", lambda server, *, product: FakeApi())
+    monkeypatch.setattr("softmax.wiki.ForumWikiClient.from_current_token", lambda server, *, product: FakeApi())
 
 
 def test_help_documents_token_identity_and_has_no_impersonation_flag() -> None:

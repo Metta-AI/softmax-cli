@@ -10,8 +10,8 @@ from uuid import uuid4
 
 import typer
 
-from softmax.auth import DEFAULT_API_SERVER
-from softmax.forum_wiki_api import ForumWikiApi, WikiEditConflictResponse
+from softmax_client.auth import DEFAULT_API_SERVER
+from softmax_client.forum_wiki import ForumWikiClient, WikiEditConflictResponse
 
 wiki_app = typer.Typer(
     no_args_is_help=True,
@@ -27,7 +27,7 @@ def wiki_read(
     json_output: Annotated[bool, typer.Option("--json", help="Print the full typed response.")] = False,
 ) -> None:
     """Read the current wiki page."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         page = api.read_wiki_page(wiki_slug, page_slug)
     if json_output:
         print(page.model_dump_json(indent=2))
@@ -51,7 +51,7 @@ def wiki_edit(
     json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
 ) -> None:
     """Edit with compare-and-swap using the revision fetched before editing."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         base = api.read_wiki_page(wiki_slug, page_slug)
         proposed_body = (
             file.read_text() if file is not None else typer.edit(base.current_revision.body, extension=".md")
@@ -108,7 +108,7 @@ def wiki_history(
     json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
 ) -> None:
     """List the current page's revision history."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         page = api.read_wiki_page(wiki_slug, page_slug)
         history = api.wiki_history(page.id)
     if json_output:
@@ -130,7 +130,7 @@ def wiki_search(
     json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
 ) -> None:
     """Search current pages in one visible wiki."""
-    with ForumWikiApi.from_current_token(server) as api:
+    with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         page = api.search_wiki(
             wiki_slug,
             query,

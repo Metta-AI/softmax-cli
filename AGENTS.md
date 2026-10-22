@@ -1,78 +1,19 @@
-# AGENTS.md — softmax-cli
+# Softmax CLI
 
-The `softmax` CLI: authentication and account tools for Softmax/Observatory. Other packages (e.g. `coworld`) depend on
-it for login/token handling and pin an exact version. Deps: `typer`, `rich`, `httpx`, plus `fastapi`/`uvicorn` for the
-local browser-login callback server. Published to PyPI.
+Owns the `softmax` command, interactive Python login, browser callback and terminal output in the `softmax` namespace.
+Read [package contracts](.contracts/index.md) and ancestor guidance. Change contracts only when explicitly requested.
+Portable operations belong to [softmax-client](../../workspaces/softmax/client/python/AGENTS.md). Follow the root
+E2E/system-only test policy.
 
-## CLI
+Run from the repository root in the pinned Nix environment:
 
-Installs a `softmax` entrypoint (`softmax.cli:app`, Typer):
-
-```bash
-uv run softmax login          # browser-based login (spins up a local callback server)
-uv run softmax logout
-uv run softmax status
-uv run softmax get-login-url
-uv run softmax get-token / set-token
-uv run softmax player list / use <player-id> / unset
-uv run softmax forum list / read / post / comment / vote / search
-uv run softmax wiki read / edit / history / search
-uv run softmax card [--demo] [--green]    # player card(s): live league standings per owned player
+```sh
+uv run --package softmax-cli ruff check packages/softmax-cli
+uv run --package softmax-cli ty check packages/softmax-cli/src
+bazel test //packages/softmax-cli/...
+uv run lint-imports
 ```
 
-`softmax player use <player-id>` mints (or reuses) a 24h player session and stores it as the active player in
-`~/.softmax/credentials.yaml` (`player_sessions`). Every auth-backed command in any CLI built on softmax-cli (including
-`coworld`, which mounts this subapp as `coworld player`) then acts as that player, because they all resolve their token
-through `softmax.auth.load_current_token`. `softmax player unset` clears the active pointer, reverting to your main user
-credential. `player list`/`use` themselves authenticate with the user token (player routes reject player-scoped tokens).
-
-## Tests
-
-```bash
-uv run metta pytest packages/softmax-cli/tests -v
-uv run metta pytest --changed
-```
-
-Tests cover auth/login, the Python API, player identity switching, and CLI plugin wiring; a `BUILD.bazel` exists under
-`tests/`.
-
-## Lint
-
-```bash
-./bazel/fix_lint.sh              # ruff (also runs via the Edit/Write hook)
-```
-
-## Source layout (`src/softmax/`)
-
-- `cli.py` — the Typer app; mounts the `player`, `forum`, and `wiki` subapps via `add_typer`.
-- `card.py` — `softmax card`: player card of live league standings (portfolio sweep + division leaderboards, one card
-  per owned player, default player first). `--demo` renders the built-in sample; `--green` for phosphor ANSI.
-- `auth.py` — token storage, browser login URL, and `whoami` HTTP helpers.
-- `_http.py` — `observatory_client`, the shared authenticated httpx client factory that `card.py` and
-  `forum_wiki_api.py` build on. Stamps the `User-Agent` from `agent.py`.
-- `agent.py` — coding-agent detection from environment markers (`CLAUDECODE`, `CODEX_*`, `CURSOR_*`, ...) and the
-  `<cli>/<version> (<agent>)` User-Agent both CLIs send.
-- `docs.py` — the softmax.com/docs URLs that help text, next-step output, and error output name; `coworld` imports these
-  too.
-- `http_errors.py` — `AgentFriendlyGroup`, the Typer group class both CLIs use: renders `httpx.HTTPStatusError` as an
-  actionable error (status, detail, next step, request id, docs link) and prints full help on a usage error under an
-  agent.
-- `players.py` — player API calls (`/observatory/players*`) and the `player list/use/unset` subapp; `coworld` mounts
-  this same subapp.
-- `forum_wiki_api.py` — typed synchronous forum/wiki wire client with retry-safe mutation payloads.
-- `forum.py` / `wiki.py` — token-is-identity Typer subapps and scriptable output.
-- `perform_login.py` — the local FastAPI/uvicorn callback server used during `softmax login`.
-- `_console.py` — shared rich console helpers.
-
-## Gotchas
-
-- Versioned via `setuptools_scm` off `softmax-v*` git tags (`fallback_version = 0.0.0`).
-- Downstream packages pin an exact `softmax-cli==X.Y.Z`; bumping the public auth API can break them — coordinate version
-  bumps with consumers like `coworld`.
-- `credentials.yaml` lives in `$SOFTMAX_CONFIG_DIR` when set and non-empty, else `~/.softmax` (`auth._config_dir`).
-  Tests sandbox with `HOME`; `tests/conftest.py` clears the override so an inherited value cannot leak into them.
-- `player_sessions[server]` in `credentials.yaml` is a structured object (`active` pointer + per-player `cache` of
-  `{token, expires_at}`), not a flat token string. Use the typed helpers in `auth.py` (`set_active_player_session`,
-  `clear_active_player_session`, `get_active_player_id`, `get_cached_player_session`, `load_player_session`);
-  `load_current_token` returns the active player token when one is selected, else the user token.
-  `softmax player use/unset` drives this.
+Exercise real local authentication with isolated saved credentials before publishing changes to login or player
+selection. Build the wheel and run its commands outside the checkout on Python 3.11 and 3.12. The
+[publishing guide](../metta-dev/src/metta/setup/tools/PUBLISHING.md) owns release setup and order.

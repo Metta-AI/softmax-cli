@@ -7,7 +7,8 @@ import pytest
 from pytest_httpserver import HTTPServer
 from typer.testing import CliRunner
 
-from softmax.auth import (
+from softmax.cli import app
+from softmax_client.credentials import (
     clear_active_player_session,
     get_active_player_id,
     load_current_token,
@@ -16,7 +17,6 @@ from softmax.auth import (
     save_user_token,
     set_active_player_session,
 )
-from softmax.cli import app
 
 PLAYER_ALPHA = {
     "id": "ply_00000000-0000-0000-0000-0000000000a1",
@@ -48,7 +48,7 @@ def _sandbox_credentials(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 def _mock_user_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     # Stub the user token for commands that authenticate against the API. Tests
     # that assert on real token storage seed it via save_user_token instead.
-    monkeypatch.setattr("softmax.auth.load_user_token", lambda *, server: "user-token")
+    monkeypatch.setattr("softmax_client.credentials.load_user_token", lambda *, server: "user-token")
 
 
 def _activate(server: str, player_id: str, token: str = "ply_session", hours: int = 24) -> None:

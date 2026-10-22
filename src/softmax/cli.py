@@ -9,18 +9,6 @@ from rich.panel import Panel
 
 from softmax import card
 from softmax._console import console
-from softmax.auth import (
-    DEFAULT_API_SERVER,
-    ExchangeFailure,
-    build_browser_login_url,
-    delete_all_tokens,
-    fetch_cogames_whoami,
-    get_api_server,
-    load_current_token,
-    load_user_token,
-    save_user_token,
-    try_exchange_auth_code,
-)
 from softmax.docs import (
     DOCS_AGENT_INDEX_URL,
     DOCS_AGENT_SKILL_URL,
@@ -33,6 +21,15 @@ from softmax.http_errors import AgentFriendlyGroup
 from softmax.perform_login import do_interactive_login_for_token
 from softmax.players import player_app
 from softmax.wiki import wiki_app
+from softmax_client.auth import (
+    DEFAULT_API_SERVER,
+    ExchangeFailure,
+    build_browser_login_url,
+    fetch_cogames_whoami,
+    get_api_server,
+    try_exchange_auth_code,
+)
+from softmax_client.credentials import delete_all_tokens, load_current_token, load_user_token, save_user_token
 
 app = typer.Typer(
     cls=AgentFriendlyGroup,
@@ -91,7 +88,7 @@ def login_cmd(
     user_token = None if force else load_user_token(server=api_server)
     if user_token is not None:
         try:
-            whoami = fetch_cogames_whoami(api_server=api_server, token=user_token)
+            whoami = fetch_cogames_whoami(api_server=api_server, token=user_token, product="softmax-cli")
             if whoami.subject_type == "anonymous":
                 console.print("Saved token is no longer valid. Re-authenticating...", style="yellow")
                 user_token = None
@@ -205,7 +202,7 @@ def status_cmd(
     ),
 ) -> None:
     """Check authentication status via /whoami."""
-    from softmax.auth import get_active_player_id, load_player_session  # noqa: PLC0415
+    from softmax_client.credentials import get_active_player_id, load_player_session  # noqa: PLC0415
 
     api_server = server or get_api_server()
     token = load_current_token(server=api_server)
@@ -213,7 +210,7 @@ def status_cmd(
         console.print("[red]Not authenticated.[/red] Run [cyan]softmax login[/cyan] first.")
         raise typer.Exit(1)
 
-    session = fetch_cogames_whoami(api_server=api_server, token=token, elevated=elevated)
+    session = fetch_cogames_whoami(api_server=api_server, token=token, elevated=elevated, product="softmax-cli")
     if session.subject_type == "anonymous":
         player_token = load_player_session(server=api_server)
         if player_token and player_token == token:
@@ -289,7 +286,7 @@ def exchange_code_cmd(
 ) -> None:
     """Exchange a one-time auth code for a credential."""
     api_server = server or get_api_server()
-    result = try_exchange_auth_code(api_server=api_server, code=code)
+    result = try_exchange_auth_code(api_server=api_server, code=code, product="softmax-cli")
     if isinstance(result, ExchangeFailure):
         console.print(result.message, style="red", highlight=False)
         raise typer.Exit(1)

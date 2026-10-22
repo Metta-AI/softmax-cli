@@ -4,7 +4,7 @@ import json
 
 import httpx
 
-from softmax.forum_wiki_api import ForumWikiApi, WikiEditConflictResponse
+from softmax_client.forum_wiki import ForumWikiClient, WikiEditConflictResponse
 
 POST = {
     "id": "post_1",
@@ -85,7 +85,7 @@ def test_forum_api_uses_exact_paths_bearer_and_scriptable_models() -> None:
             )
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
-    with ForumWikiApi(
+    with ForumWikiClient(
         server="https://softmax.test",
         token="identity-token",
         transport=httpx.MockTransport(handler),
@@ -153,7 +153,7 @@ def test_wiki_api_uses_exact_paths_and_parses_typed_conflict() -> None:
             )
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
-    with ForumWikiApi(
+    with ForumWikiClient(
         server="https://softmax.test",
         token="identity-token",
         transport=httpx.MockTransport(handler),
@@ -199,7 +199,7 @@ def test_mutations_retain_idempotency_keys_across_retries() -> None:
             return httpx.Response(200, json={"page": summary, "revision": PAGE["current_revision"]})
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
-    with ForumWikiApi(
+    with ForumWikiClient(
         server="https://softmax.test",
         token="identity-token",
         transport=httpx.MockTransport(handler),
