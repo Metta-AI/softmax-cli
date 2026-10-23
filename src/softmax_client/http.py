@@ -15,7 +15,7 @@ def observatory_client(
     base: str = "/observatory",
     transport: httpx.BaseTransport | None = None,
     timeout: float = 10.0,
-    product: str = "softmax-client",
+    product: str = "softmax-cli",
 ) -> httpx.Client:
     """Construct an authenticated client with bounded rate-limit retries; the caller owns closing it."""
     return httpx.Client(

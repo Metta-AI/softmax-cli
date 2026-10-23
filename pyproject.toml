@@ -17,8 +17,8 @@ dependencies = [
   "fastapi>=0.115.0",
   "httpx>=0.28.1",
   "pydantic>=2.0",
+  "pyyaml>=6.0.2",
   "rich>=13.7.0",
-  "softmax-client==0.1.0",
   "typer>=0.19.2,<0.26",
   "uvicorn>=0.34.0",
 ]
@@ -36,11 +36,14 @@ softmax = "softmax.cli:app"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+softmax_client = ["py.typed"]
+
 [tool.setuptools_scm]
 tag_regex = "^softmax-v(?P<version>\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)$"
 version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
-root = "../../.."
+root = "."
 fallback_version = "0.0.0"
 git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "softmax-v*"]
 
@@ -48,6 +51,3 @@ git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--mat
 addopts = "--import-mode=importlib"
 pythonpath = ["src"]
 testpaths = ["tests"]
-
-[tool.uv.sources]
-softmax-client = { workspace = true }

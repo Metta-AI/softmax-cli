@@ -29,21 +29,21 @@ class PlayerLoginResponse(BaseModel):
     expires_at: datetime
 
 
-def list_players(*, server: str, token: str, product: str = "softmax-client") -> list[PlayerResponse]:
+def list_players(*, server: str, token: str, product: str = "softmax-cli") -> list[PlayerResponse]:
     with observatory_client(server=server, token=token, product=product) as client:
         response = client.get("/players")
     response.raise_for_status()
     return [PlayerResponse.model_validate(entry) for entry in response.json()]
 
 
-def create_player(*, server: str, token: str, name: str, product: str = "softmax-client") -> PlayerResponse:
+def create_player(*, server: str, token: str, name: str, product: str = "softmax-cli") -> PlayerResponse:
     with observatory_client(server=server, token=token, product=product) as client:
         response = client.post("/players", json={"name": name})
     response.raise_for_status()
     return PlayerResponse.model_validate(response.json())
 
 
-def login_player(*, server: str, token: str, player_id: str, product: str = "softmax-client") -> PlayerLoginResponse:
+def login_player(*, server: str, token: str, player_id: str, product: str = "softmax-cli") -> PlayerLoginResponse:
     with observatory_client(server=server, token=token, product=product) as client:
         response = client.post(f"/players/{player_id}/login")
     response.raise_for_status()

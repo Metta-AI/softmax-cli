@@ -1,18 +1,14 @@
 # Softmax CLI
 
-Owns the `softmax` command, interactive Python login, browser callback and terminal output in the `softmax` namespace.
-Read [package contracts](.contracts/index.md) and ancestor guidance. Change contracts only when explicitly requested.
-Portable operations belong to [softmax-client](../client/python/AGENTS.md). Follow the root E2E/system-only test policy.
+This repository contains the public `softmax-cli` distribution and `softmax` command. Portable authentication,
+credentials and HTTP clients live in its bundled `softmax_client` namespace.
 
-Run from the repository root in the pinned Nix environment:
+Use Python 3.11 or 3.12. Install development dependencies with `uv sync --extra test`, then run `uv run pytest tests`.
+Run `uv run softmax --help` and `uv run softmax get-login-url` to inspect the command surface.
 
-```sh
-uv run --package softmax-cli ruff check workspaces/softmax/cli
-uv run --package softmax-cli ty check workspaces/softmax/cli/src
-bazel test //workspaces/softmax/cli/...
-uv run lint-imports
-```
+Use an isolated `SOFTMAX_CONFIG_DIR` for authentication changes. Preserve saved credential data and keep tokens out of
+logs. Commands requiring user authority must select the user token, while token-is-identity commands honor an active
+player. Follow the supported Typer/Click range in `pyproject.toml`.
 
-Exercise real local authentication with isolated saved credentials before publishing changes to login or player
-selection. Build the wheel and run its commands outside the checkout on Python 3.11 and 3.12. The
-[publishing guide](../../../packages/metta-dev/src/metta/setup/tools/PUBLISHING.md) owns release setup and order.
+Write only complete E2E or system workflow coverage. Existing suites remain usable. Public package releases use the
+`softmax-v*` tag stream and include both namespaces in the same wheel.

@@ -192,14 +192,14 @@ class ForumWikiClient:
         server: str,
         token: str,
         transport: httpx.BaseTransport | None = None,
-        product: str = "softmax-client",
+        product: str = "softmax-cli",
     ) -> None:
         self._client = observatory_client(
             server=server, token=token, base="/observatory/v2/", transport=transport, product=product
         )
 
     @classmethod
-    def from_current_token(cls, server: str, *, product: str = "softmax-client") -> Self:
+    def from_current_token(cls, server: str, *, product: str = "softmax-cli") -> Self:
         token = credentials.load_current_token(server=server)
         if token is None:
             raise RuntimeError(f"Not authenticated. Run: softmax login --server {server}")

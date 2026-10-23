@@ -2,8 +2,8 @@
 
 The `softmax` command-line tool: authentication and account management for Softmax / Observatory. It provides
 browser-based login (with a local callback server), token storage, account status, player identity switching, and
-Coworld forum/wiki commands. Portable credentials and HTTP clients live in `softmax-client`. Coworld mounts the CLI's
-shared command groups.
+Coworld forum/wiki commands. Portable credentials and HTTP clients live in the bundled
+[`softmax_client` modules](CLIENT.md). Coworld mounts the CLI's shared command groups.
 
 ## Read documentation
 
@@ -53,6 +53,16 @@ Both CLIs detect a coding agent from its environment marker (`CLAUDECODE`, `CODE
 `GEMINI_CLI`, and others; see `softmax_client.agent`). Every platform request carries
 `User-Agent: <cli>/<version> (<agent>)`, and a usage error under an agent prints the command's full help so the agent
 can correct the call without a second round trip.
+
+## Publishing
+
+Run `metta publish softmax` from a clean `main` checkout. The `softmax-v*` release publishes one `softmax-cli` wheel
+containing both `softmax` and `softmax_client`, then updates the existing public CLI mirror. The existing
+`release-softmax.yml` workflow and `softmax-pypi` environment remain the release authority.
+
+See the
+[publishing guide](https://github.com/Metta-AI/metta/blob/main/packages/metta-dev/src/metta/setup/tools/PUBLISHING.md)
+for previews and Coworld release order.
 
 ## Development
 

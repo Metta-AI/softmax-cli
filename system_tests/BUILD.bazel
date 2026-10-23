@@ -1,0 +1,17 @@
+load("//bazel:pytest.bzl", "pytest_test_typed")
+load("//bazel:ruff.bzl", "ruff_lint")
+
+pytest_test_typed(
+    name = "test_community_system",
+    srcs = ["test_community_system.py"],
+    args = ["--noconftest", "--import-mode=importlib", "-o", "addopts=", "-o", "pythonpath="],
+    tags = ["external", "manual", "local"],
+    timeout = "short",
+    deps = [
+        "//workspaces/softmax/cli:softmax",
+        "@pypi//httpx",
+        "@pypi//pytest",
+    ],
+)
+
+ruff_lint(name = "_tests", srcs = ["test_community_system.py"])

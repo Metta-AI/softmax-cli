@@ -51,7 +51,7 @@ def build_browser_login_url(api_server: str, *, callback_url: str | None = None)
 
 
 def fetch_cogames_whoami(
-    *, api_server: str | None = None, token: str, elevated: bool = False, product: str = "softmax-client"
+    *, api_server: str | None = None, token: str, elevated: bool = False, product: str = "softmax-cli"
 ) -> WhoAmIResponse:
     server = api_server or DEFAULT_API_SERVER
     headers = {ELEVATED_PRIVILEGES_HEADER: "true"} if elevated else {}
@@ -61,7 +61,7 @@ def fetch_cogames_whoami(
     return WhoAmIResponse.model_validate(response.json())
 
 
-def exchange_auth_code(*, api_server: str, code: str, product: str = "softmax-client") -> str:
+def exchange_auth_code(*, api_server: str, code: str, product: str = "softmax-cli") -> str:
     """Exchange a one-time auth code for a real credential token."""
     host = (urlsplit(api_server).hostname or "").lower()
     if host not in _TRUSTED_EXACT_HOSTS and not any(host.endswith(suffix) for suffix in _TRUSTED_HOST_SUFFIXES):
@@ -92,7 +92,7 @@ class ExchangeFailure(BaseModel):
 ExchangeOutcome = ExchangeSuccess | ExchangeFailure
 
 
-def try_exchange_auth_code(*, api_server: str, code: str, product: str = "softmax-client") -> ExchangeOutcome:
+def try_exchange_auth_code(*, api_server: str, code: str, product: str = "softmax-cli") -> ExchangeOutcome:
     """Classify expected code-exchange failures for interactive sign-in callers."""
     try:
         token = exchange_auth_code(api_server=api_server, code=code, product=product)
