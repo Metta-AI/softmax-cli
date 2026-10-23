@@ -158,10 +158,10 @@ def test_wiki_api_uses_exact_paths_and_parses_typed_conflict() -> None:
         token="identity-token",
         transport=httpx.MockTransport(handler),
     ) as api:
-        assert api.read_wiki_page("global", "guide/start").current_revision.body == "Base"
+        assert api.read_wiki_page("global", page_slug="guide/start").current_revision.body == "Base"
         conflict = api.edit_wiki_page(
             "global",
-            "guide/start",
+            page_slug="guide/start",
             title="Start",
             body="Proposed",
             base_revision_id="wrv_1",
@@ -170,7 +170,7 @@ def test_wiki_api_uses_exact_paths_and_parses_typed_conflict() -> None:
         assert isinstance(conflict, WikiEditConflictResponse)
         assert conflict.detail.current_body == "Current"
         assert api.wiki_history("wpg_1").entries[0].id == "wrv_1"
-        assert api.search_wiki("global", "query").entries[0].page.id == "wpg_1"
+        assert api.search_wiki("global", query="query").entries[0].page.id == "wpg_1"
 
     assert [request.url.path for request in requests] == [
         "/observatory/v2/wikis/global/pages/guide/start",
@@ -208,7 +208,7 @@ def test_mutations_retain_idempotency_keys_across_retries() -> None:
         api.create_comment("post_1", body="Reply", idempotency_key="comment-key")
         api.edit_wiki_page(
             "global",
-            "guide/start",
+            page_slug="guide/start",
             title="Start",
             body="Proposed",
             base_revision_id="wrv_1",

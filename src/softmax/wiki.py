@@ -28,7 +28,7 @@ def wiki_read(
 ) -> None:
     """Read the current wiki page."""
     with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
-        page = api.read_wiki_page(wiki_slug, page_slug)
+        page = api.read_wiki_page(wiki_slug, page_slug=page_slug)
     if json_output:
         print(page.model_dump_json(indent=2))
         return
@@ -52,7 +52,7 @@ def wiki_edit(
 ) -> None:
     """Edit with compare-and-swap using the revision fetched before editing."""
     with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
-        base = api.read_wiki_page(wiki_slug, page_slug)
+        base = api.read_wiki_page(wiki_slug, page_slug=page_slug)
         proposed_body = (
             file.read_text() if file is not None else typer.edit(base.current_revision.body, extension=".md")
         )
@@ -60,7 +60,7 @@ def wiki_edit(
             raise typer.Abort()
         result = api.edit_wiki_page(
             wiki_slug,
-            page_slug,
+            page_slug=page_slug,
             title=title or base.title,
             body=proposed_body,
             base_revision_id=base.current_revision_id,
@@ -109,7 +109,7 @@ def wiki_history(
 ) -> None:
     """List the current page's revision history."""
     with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
-        page = api.read_wiki_page(wiki_slug, page_slug)
+        page = api.read_wiki_page(wiki_slug, page_slug=page_slug)
         history = api.wiki_history(page.id)
     if json_output:
         print(history.model_dump_json(indent=2))
@@ -133,7 +133,7 @@ def wiki_search(
     with ForumWikiClient.from_current_token(server, product="softmax-cli") as api:
         page = api.search_wiki(
             wiki_slug,
-            query,
+            query=query,
             author_user_id=author_user_id,
             author_player_id=author_player_id,
             limit=limit,

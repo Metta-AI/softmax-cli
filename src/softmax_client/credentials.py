@@ -85,7 +85,7 @@ def save_user_token(*, server: str, token: str) -> None:
     _save_data(data)
 
 
-def _server_sessions(data: Credentials, server: str) -> ServerPlayerSessions:
+def _server_sessions(data: Credentials, *, server: str) -> ServerPlayerSessions:
     return data.player_sessions.get(server.rstrip("/"), ServerPlayerSessions())
 
 
@@ -95,7 +95,7 @@ def load_player_session(*, server: str) -> str | None:
     Returns None for expired sessions so `load_current_token` falls through to
     the user token rather than sending a dead player token that produces 401s.
     """
-    sessions = _server_sessions(_load_data(), server)
+    sessions = _server_sessions(_load_data(), server=server)
     if sessions.active is None:
         return None
     cached = sessions.cache.get(sessions.active)
@@ -107,16 +107,16 @@ def load_player_session(*, server: str) -> str | None:
 
 
 def get_active_player_id(*, server: str) -> str | None:
-    return _server_sessions(_load_data(), server).active
+    return _server_sessions(_load_data(), server=server).active
 
 
 def get_cached_player_session(*, server: str, player_id: str) -> CachedPlayerSession | None:
-    return _server_sessions(_load_data(), server).cache.get(player_id)
+    return _server_sessions(_load_data(), server=server).cache.get(player_id)
 
 
 def set_active_player_session(*, server: str, player_id: str, token: str, expires_at: datetime) -> None:
     data = _load_data()
-    sessions = _server_sessions(data, server)
+    sessions = _server_sessions(data, server=server)
     if player_id in sessions.cache:
         sessions.cache[player_id].token = token
         sessions.cache[player_id].expires_at = expires_at
@@ -134,7 +134,7 @@ def clear_active_player_session(*, server: str) -> bool:
     Leaves the user token untouched.
     """
     data = _load_data()
-    sessions = _server_sessions(data, server)
+    sessions = _server_sessions(data, server=server)
     if sessions.active is None:
         return False
     sessions.active = None

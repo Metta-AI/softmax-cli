@@ -24,7 +24,7 @@ ResponseT = TypeVar("ResponseT", bound=WireModel)
 
 
 def _search_params(
-    query: str, limit: int, cursor: str | None, author_user_id: str | None, author_player_id: str | None
+    query: str, *, limit: int, cursor: str | None, author_user_id: str | None, author_player_id: str | None
 ) -> dict[str, str | int]:
     params: dict[str, str | int] = {"q": query, "limit": limit}
     for key, value in (("author_user_id", author_user_id), ("author_player_id", author_player_id), ("cursor", cursor)):
@@ -213,9 +213,9 @@ class ForumWikiClient:
 
     def _request(
         self,
+        *,
         method: str,
         path: str,
-        *,
         params: dict[str, str | int] | None = None,
         body: BaseModel | None = None,
     ) -> httpx.Response:
@@ -229,14 +229,14 @@ class ForumWikiClient:
 
     def _validated_request(
         self,
+        *,
         response_type: type[ResponseT],
         method: str,
         path: str,
-        *,
         params: dict[str, str | int] | None = None,
         body: BaseModel | None = None,
     ) -> ResponseT:
-        response = self._request(method, path, params=params, body=body)
+        response = self._request(method=method, path=path, params=params, body=body)
         response.raise_for_status()
         return response_type.model_validate(response.json())
 
@@ -251,18 +251,20 @@ class ForumWikiClient:
         params: dict[str, str | int] = {"sort": sort, "limit": limit}
         if cursor is not None:
             params["cursor"] = cursor
-        return self._validated_request(PostFeedPage, "GET", f"forums/{quote(forum_slug, safe='')}/posts", params=params)
+        return self._validated_request(
+            response_type=PostFeedPage, method="GET", path=f"forums/{quote(forum_slug, safe='')}/posts", params=params
+        )
 
     def read_post(self, post_id: str) -> str:
-        response = self._request("GET", f"posts/{quote(post_id, safe='')}.md")
+        response = self._request(method="GET", path=f"posts/{quote(post_id, safe='')}.md")
         response.raise_for_status()
         return response.text
 
     def create_post(self, *, title: str, body: str, idempotency_key: str) -> PostPublic:
         return self._validated_request(
-            PostPublic,
-            "POST",
-            "posts",
+            response_type=PostPublic,
+            method="POST",
+            path="posts",
             body=CreatePostRequest(title=title, body=body, idempotency_key=idempotency_key),
         )
 
@@ -275,9 +277,9 @@ class ForumWikiClient:
         parent_id: str | None = None,
     ) -> PostCommentPublic:
         return self._validated_request(
-            PostCommentPublic,
-            "POST",
-            f"posts/{quote(post_id, safe='')}/comments",
+            response_type=PostCommentPublic,
+            method="POST",
+            path=f"posts/{quote(post_id, safe='')}/comments",
             body=CreateCommentRequest(body=body, idempotency_key=idempotency_key, parent_id=parent_id),
         )
 
@@ -291,7 +293,9 @@ class ForumWikiClient:
         path = f"posts/{quote(post_id, safe='')}"
         if comment_id is not None:
             path += f"/comments/{quote(comment_id, safe='')}"
-        return self._validated_request(VotePublic, "PUT", f"{path}/vote", body=VoteRequest(value=value))
+        return self._validated_request(
+            response_type=VotePublic, method="PUT", path=f"{path}/vote", body=VoteRequest(value=value)
+        )
 
     def search_forum(
         self,
@@ -304,21 +308,23 @@ class ForumWikiClient:
         cursor: str | None = None,
     ) -> ForumSearchPage:
         path = "forums/search" if forum_slug is None else f"forums/{quote(forum_slug, safe='')}/search"
-        params = _search_params(query, limit, cursor, author_user_id, author_player_id)
-        return self._validated_request(ForumSearchPage, "GET", path, params=params)
+        params = _search_params(
+            query, limit=limit, cursor=cursor, author_user_id=author_user_id, author_player_id=author_player_id
+        )
+        return self._validated_request(response_type=ForumSearchPage, method="GET", path=path, params=params)
 
-    def read_wiki_page(self, wiki_slug: str, page_slug: str) -> WikiPagePublic:
+    def read_wiki_page(self, wiki_slug: str, *, page_slug: str) -> WikiPagePublic:
         return self._validated_request(
-            WikiPagePublic,
-            "GET",
-            f"wikis/{quote(wiki_slug, safe='')}/pages/{quote(page_slug, safe='/')}",
+            response_type=WikiPagePublic,
+            method="GET",
+            path=f"wikis/{quote(wiki_slug, safe='')}/pages/{quote(page_slug, safe='/')}",
         )
 
     def edit_wiki_page(
         self,
         wiki_slug: str,
-        page_slug: str,
         *,
+        page_slug: str,
         title: str,
         body: str,
         base_revision_id: str,
@@ -326,8 +332,8 @@ class ForumWikiClient:
         note: str | None = None,
     ) -> WikiEditPublic | WikiEditConflictResponse:
         response = self._request(
-            "PUT",
-            f"wikis/{quote(wiki_slug, safe='')}/pages/{quote(page_slug, safe='/')}",
+            method="PUT",
+            path=f"wikis/{quote(wiki_slug, safe='')}/pages/{quote(page_slug, safe='/')}",
             body=WikiEditRequest(
                 title=title,
                 body=body,
@@ -342,19 +348,23 @@ class ForumWikiClient:
         return WikiEditPublic.model_validate(response.json())
 
     def wiki_history(self, page_id: str) -> WikiRevisionListPublic:
-        return self._validated_request(WikiRevisionListPublic, "GET", f"wiki-pages/{quote(page_id, safe='')}/revisions")
+        return self._validated_request(
+            response_type=WikiRevisionListPublic, method="GET", path=f"wiki-pages/{quote(page_id, safe='')}/revisions"
+        )
 
     def search_wiki(
         self,
         wiki_slug: str,
-        query: str,
         *,
+        query: str,
         author_user_id: str | None = None,
         author_player_id: str | None = None,
         limit: int = 20,
         cursor: str | None = None,
     ) -> WikiSearchPage:
-        params = _search_params(query, limit, cursor, author_user_id, author_player_id)
+        params = _search_params(
+            query, limit=limit, cursor=cursor, author_user_id=author_user_id, author_player_id=author_player_id
+        )
         return self._validated_request(
-            WikiSearchPage, "GET", f"wikis/{quote(wiki_slug, safe='')}/search", params=params
+            response_type=WikiSearchPage, method="GET", path=f"wikis/{quote(wiki_slug, safe='')}/search", params=params
         )
